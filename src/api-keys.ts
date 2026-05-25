@@ -14,6 +14,12 @@ const KEY_PREFIX = 'sk_live_'
 /** Number of chars from the full key stored for display (prefix + 8 random chars). */
 const DISPLAY_PREFIX_LENGTH = KEY_PREFIX.length + 8
 
+/** PBKDF2 settings for API key hashing (deterministic for DB lookup). */
+const API_KEY_HASH_ITERATIONS = 210_000
+const API_KEY_HASH_KEYLEN = 32
+const API_KEY_HASH_DIGEST = 'sha256'
+const API_KEY_HASH_SALT = process.env.API_KEY_HASH_SALT
+
 export interface GeneratedApiKey {
   /** Full plaintext key — shown ONCE, never stored. */
   key: string
@@ -34,9 +40,15 @@ export function generateApiKey(): GeneratedApiKey {
   }
 }
 
-/** Computes the SHA-256 hex digest of a key string. Used for lookups. */
+/** Computes a PBKDF2 hex digest of a key string. Used for deterministic lookups. */
 export function hashApiKey(key: string): string {
-  return crypto.createHash('sha256').update(key).digest('hex')
+  if (!API_KEY_HASH_SALT) {
+    throw new Error('Missing API_KEY_HASH_SALT environment variable')
+  }
+
+  return crypto
+    .pbkdf2Sync(key, API_KEY_HASH_SALT, API_KEY_HASH_ITERATIONS, API_KEY_HASH_KEYLEN, API_KEY_HASH_DIGEST)
+    .toString('hex')
 }
 
 export function createApiKeysDb(supabase: SupabaseClient<Database>) {
