@@ -15,7 +15,8 @@
   "files": [
     "dist",
     "bin",
-    "templates"
+    "templates",
+    "src/commands"
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
@@ -35,5 +36,8 @@
     "typescript": "^5.4.5",
     "vitest": "^2.1.8"
   },
-  "bin": "./bin/cli.js"
+  "bin": "./bin/cli.js",
+  "dependencies": {
+    "commander": "^12.1.0"
+  }
 }
