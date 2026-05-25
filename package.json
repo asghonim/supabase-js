@@ -1,6 +1,6 @@
 {
   "name": "@asghonim/supabase-js",
-  "version": "0.1.0-alpha.1",
+  "version": "0.2.0-alpha.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/asghonim/supabase-js"
@@ -20,7 +20,7 @@
     "dist",
     "bin",
     "manifest.json",
-    "src/commands",
+    "src/commands/add.js",
     "supabase/migrations"
   ],
   "scripts": {
@@ -40,11 +40,18 @@
     "@types/node": "^25.9.1",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.2",
+    "next": "16.1.6"
   },
   "bin": "./bin/cli.js",
   "dependencies": {
-    "@supabase/supabase-js": "^2.106.2",
     "commander": "^12.1.0"
+  },
+  "peerDependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.106.2",
+    "next": "16.1.6"
   }
 }

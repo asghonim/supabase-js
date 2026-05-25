@@ -965,7 +965,6 @@ export type Database = {
           entity_type: string | null
           id: number
           occurred_at: string
-          organization_id: number | null
           payload: Json
           type: string
         }
@@ -976,7 +975,6 @@ export type Database = {
           entity_type?: string | null
           id?: never
           occurred_at?: string
-          organization_id?: number | null
           payload?: Json
           type: string
         }
@@ -987,7 +985,6 @@ export type Database = {
           entity_type?: string | null
           id?: never
           occurred_at?: string
-          organization_id?: number | null
           payload?: Json
           type?: string
         }
@@ -997,13 +994,6 @@ export type Database = {
             columns: ["actor_account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "notification_events_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]

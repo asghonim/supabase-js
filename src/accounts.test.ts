@@ -1,0 +1,156 @@
+/**
+ * RLS tests for account_names and account_avatars.
+ *
+ * Policy under test:
+ *   - Owners can INSERT their own names/avatars (private.owns_account check)
+ *   - Owners can SELECT their own names/avatars
+ *   - Users CANNOT insert into or read another user's rows
+ */
+
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { admin, createTestUser, deleteTestUser, type TestUser } from './helpers'
+
+describe('account_names and account_avatars RLS', () => {
+  let userA: TestUser
+  let userB: TestUser
+
+  beforeAll(async () => {
+    userA = await createTestUser('acct-a')
+    userB = await createTestUser('acct-b')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+  })
+
+  // ─── account_names ──────────────────────────────────────────────────────────
+
+  describe('account_names', () => {
+    it('owner can insert their own name', async () => {
+      // created_at is required by generated types; the trigger overwrites it before insert
+      const { error } = await userA.client
+        .from('account_names')
+        .insert({ account_id: userA.accountId, name: 'Alice', created_at: new Date().toISOString() })
+      expect(error).toBeNull()
+    })
+
+    it('owner can read their own names', async () => {
+      const { data, error } = await userA.client
+        .from('account_names')
+        .select('name')
+        .eq('account_id', userA.accountId)
+      expect(error).toBeNull()
+      expect(data?.some(r => r.name === 'Alice')).toBe(true)
+    })
+
+    it('user cannot insert into another account', async () => {
+      const { error } = await userB.client
+        .from('account_names')
+        .insert({ account_id: userA.accountId, name: 'Hacker', created_at: new Date().toISOString() })
+      expect(error).not.toBeNull()
+      expect(error!.code).toBe('42501') // RLS violation
+    })
+
+    it('user cannot read another account\'s names (empty result, no error)', async () => {
+      // RLS silently filters rows on SELECT — no 403, just empty
+      const { data, error } = await userB.client
+        .from('account_names')
+        .select('*')
+        .eq('account_id', userA.accountId)
+      expect(error).toBeNull()
+      expect(data).toHaveLength(0)
+    })
+
+    it('admin can read any account\'s names (bypasses RLS)', async () => {
+      const { data, error } = await admin
+        .from('account_names')
+        .select('name')
+        .eq('account_id', userA.accountId)
+      expect(error).toBeNull()
+      expect(data?.some(r => r.name === 'Alice')).toBe(true)
+    })
+
+    it('created_at is set automatically by trigger', async () => {
+      const { data, error } = await admin
+        .from('account_names')
+        .select('created_at')
+        .eq('account_id', userA.accountId)
+        .limit(1)
+        .single()
+      expect(error).toBeNull()
+      expect(data!.created_at).toBeTruthy()
+      expect(new Date(data!.created_at).getTime()).toBeGreaterThan(0)
+    })
+  })
+
+  // ─── account_avatars ─────────────────────────────────────────────────────────
+
+  describe('account_avatars', () => {
+    const avatarUrl = 'https://example.com/avatar.png'
+
+    it('owner can insert their own avatar', async () => {
+      const { error } = await userA.client
+        .from('account_avatars')
+        .insert({ account_id: userA.accountId, url: avatarUrl, created_at: new Date().toISOString() })
+      expect(error).toBeNull()
+    })
+
+    it('owner can read their own avatars', async () => {
+      const { data, error } = await userA.client
+        .from('account_avatars')
+        .select('url')
+        .eq('account_id', userA.accountId)
+      expect(error).toBeNull()
+      expect(data?.some(r => r.url === avatarUrl)).toBe(true)
+    })
+
+    it('user cannot insert avatar into another account', async () => {
+      const { error } = await userB.client
+        .from('account_avatars')
+        .insert({ account_id: userA.accountId, url: 'https://evil.com/hack.png', created_at: new Date().toISOString() })
+      expect(error).not.toBeNull()
+      expect(error!.code).toBe('42501')
+    })
+
+    it('user cannot read another account\'s avatars', async () => {
+      const { data, error } = await userB.client
+        .from('account_avatars')
+        .select('*')
+        .eq('account_id', userA.accountId)
+      expect(error).toBeNull()
+      expect(data).toHaveLength(0)
+    })
+
+    it('url must be between 1 and 2048 characters (check constraint)', async () => {
+      const { error } = await admin
+        .from('account_avatars')
+        .insert({ account_id: userA.accountId, url: 'x'.repeat(2049), created_at: new Date().toISOString() })
+      expect(error).not.toBeNull()
+    })
+  })
+
+  // ─── accounts table itself ───────────────────────────────────────────────────
+
+  describe('accounts table (no RLS policies — service-role only writes)', () => {
+    it('user can read their own account via admin', async () => {
+      const { data, error } = await admin
+        .from('accounts')
+        .select('id, user_id')
+        .eq('id', userA.accountId)
+        .single()
+      expect(error).toBeNull()
+      expect(data!.user_id).toBe(userA.id)
+    })
+
+    it('account is created automatically when auth user is created', async () => {
+      const { data, error } = await admin
+        .from('accounts')
+        .select('id')
+        .eq('user_id', userB.id)
+        .single()
+      expect(error).toBeNull()
+      expect(data!.id).toBe(userB.accountId)
+    })
+  })
+})

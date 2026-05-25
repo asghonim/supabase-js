@@ -17,7 +17,7 @@ BEGIN
     NEW.created_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, private;
 
 CREATE TRIGGER on_create_account
 BEFORE INSERT ON public.accounts
@@ -37,7 +37,7 @@ BEGIN
     ON CONFLICT (user_id) DO NOTHING;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
 
 CREATE OR REPLACE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
@@ -68,7 +68,7 @@ BEGIN
     NEW.created_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, private;
 
 CREATE TRIGGER on_insert_account_name
 BEFORE INSERT ON public.account_names
@@ -80,7 +80,7 @@ BEGIN
     NEW.created_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, private;
 
 CREATE TRIGGER on_insert_account_avatar
 BEFORE INSERT ON public.account_avatars
@@ -101,7 +101,7 @@ RETURNS BOOLEAN AS $$
         WHERE a.id = p_account_id
           AND a.user_id = auth.uid()
     );
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
 
 CREATE POLICY "Account owners can insert their own names"
     ON public.account_names

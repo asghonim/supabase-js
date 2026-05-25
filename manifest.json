@@ -7,5 +7,14 @@
         "destination": "supabase/migrations/20260521101353_accounts.sql"
       }
     ]
+  },
+  "notifications": {
+    "description": "Adds starter notifications migration files",
+    "files": [
+      {
+        "source": "supabase/migrations/20260521110000_notifications.sql",
+        "destination": "supabase/migrations/20260521110000_notifications.sql"
+      }
+    ]
   }
 }
