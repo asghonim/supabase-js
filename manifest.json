@@ -1,0 +1,11 @@
+{
+  "accounts": {
+    "description": "Adds starter accounts migration files",
+    "files": [
+      {
+        "source": "supabase/migrations/20260521101353_accounts.sql",
+        "destination": "supabase/migrations/20260521101353_accounts.sql"
+      }
+    ]
+  }
+}
