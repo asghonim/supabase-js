@@ -1,0 +1,15 @@
+{
+  "accounts": {
+    "description": "Adds starter account source files",
+    "files": [
+      {
+        "source": "accounts/accounts.ts",
+        "destination": "accounts.ts"
+      },
+      {
+        "source": "accounts/accounts.types.ts",
+        "destination": "accounts.types.ts"
+      }
+    ]
+  }
+}
