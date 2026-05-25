@@ -2,7 +2,7 @@
 
 -- ── Enums ────────────────────────────────────────────────────────────────────
 
-CREATE TYPE contact_status AS ENUM (
+CREATE TYPE public.contact_status AS ENUM (
     'new',
     'reviewed',
     'in_progress',
@@ -12,14 +12,14 @@ CREATE TYPE contact_status AS ENUM (
     'spam'
 );
 
-CREATE TYPE contact_priority AS ENUM (
+CREATE TYPE public.contact_priority AS ENUM (
     'low',
     'normal',
     'high',
     'urgent'
 );
 
-CREATE TYPE contact_sender_type AS ENUM (
+CREATE TYPE public.contact_sender_type AS ENUM (
     'customer',
     'agent',
     'system'
@@ -27,13 +27,13 @@ CREATE TYPE contact_sender_type AS ENUM (
 
 -- ── Core submissions table ────────────────────────────────────────────────────
 
-CREATE TABLE contact_submissions (
+CREATE TABLE public.contact_submissions (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    status                  contact_status NOT NULL DEFAULT 'new',
-    priority                contact_priority NOT NULL DEFAULT 'normal',
+    status                  public.contact_status NOT NULL DEFAULT 'new',
+    priority                public.contact_priority NOT NULL DEFAULT 'normal',
 
     source                  TEXT,
     category                TEXT,
@@ -77,11 +77,11 @@ CREATE TRIGGER on_contact_submissions_inserted  BEFORE INSERT ON contact_submiss
 
 -- ── Message threading ─────────────────────────────────────────────────────────
 
-CREATE TABLE contact_messages (
+CREATE TABLE public.contact_messages (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    submission_id   UUID NOT NULL REFERENCES contact_submissions(id) ON DELETE CASCADE,
+    submission_id   UUID NOT NULL REFERENCES public.contact_submissions(id) ON DELETE CASCADE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    sender_type     contact_sender_type NOT NULL DEFAULT 'customer',
+    sender_type     public.contact_sender_type NOT NULL DEFAULT 'customer',
     sender_account_id  BIGINT REFERENCES public.accounts(id) ON DELETE SET NULL,
     body            TEXT NOT NULL,
     is_internal     BOOLEAN NOT NULL DEFAULT false,
@@ -92,10 +92,10 @@ CREATE TRIGGER on_contact_messages_inserted     BEFORE INSERT ON contact_message
 
 -- ── Attachment metadata (files live in object storage) ────────────────────────
 
-CREATE TABLE contact_attachments (
+CREATE TABLE public.contact_attachments (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    submission_id       UUID REFERENCES contact_submissions(id) ON DELETE CASCADE,
-    message_id          UUID REFERENCES contact_messages(id) ON DELETE CASCADE,
+    submission_id       UUID REFERENCES public.contact_submissions(id) ON DELETE CASCADE,
+    message_id          UUID REFERENCES public.contact_messages(id) ON DELETE CASCADE,
     storage_provider    TEXT NOT NULL DEFAULT 'supabase',
     storage_key         TEXT NOT NULL,
     file_name           TEXT NOT NULL,
