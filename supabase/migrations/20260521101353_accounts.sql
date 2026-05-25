@@ -20,7 +20,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER on_create_account
-BEFORE UPDATE ON public.accounts
+BEFORE INSERT ON public.accounts
 FOR EACH ROW
 EXECUTE FUNCTION private.on_create_account();
 
@@ -89,6 +89,10 @@ FOR EACH ROW EXECUTE FUNCTION private.on_insert_account_avatar();
 ALTER TABLE public.account_names   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.account_avatars ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "Account owners can view their own accounts"
+    ON public.accounts
+    FOR SELECT
+    USING (user_id = auth.uid());
 
 CREATE OR REPLACE FUNCTION private.owns_account(p_account_id BIGINT)
 RETURNS BOOLEAN AS $$
@@ -99,8 +103,6 @@ RETURNS BOOLEAN AS $$
     );
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
-
--- Owners can insert their own records
 CREATE POLICY "Account owners can insert their own names"
     ON public.account_names
     FOR INSERT
@@ -111,7 +113,6 @@ CREATE POLICY "Account owners can insert their own avatars"
     FOR INSERT
     WITH CHECK (private.owns_account(account_id));
 
--- Owners can read their own records
 CREATE POLICY "Account owners can view their own names"
     ON public.account_names
     FOR SELECT
