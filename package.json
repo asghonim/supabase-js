@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
-    "test": "jest",
+    "test": "vitest run",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
@@ -29,10 +29,8 @@
   "author": "asghonim",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@types/jest": "^29.5.12",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.1.4",
     "tsup": "^8.0.2",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^2.1.8"
   }
 }

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest'
 import { createClient, SupabaseClient } from './lib/SupabaseClient'
 
 describe('createClient', () => {
