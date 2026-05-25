@@ -2,9 +2,12 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
 
-const cliPath = path.resolve(__dirname, '../../bin/cli.js')
+const filename = fileURLToPath(import.meta.url)
+const dirname = path.dirname(filename)
+const cliPath = path.resolve(dirname, '../../bin/cli.js')
 const tempDirectories: string[] = []
 
 function createTempDirectory() {
