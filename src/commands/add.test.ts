@@ -1,10 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
 
-const cliPath = path.resolve(__dirname, '../bin/cli.js')
+const cliPath = path.resolve(__dirname, '../../bin/cli.js')
 const tempDirectories: string[] = []
 
 function createTempDirectory() {
@@ -32,13 +32,12 @@ afterEach(() => {
   }
 })
 
-describe('supabase-js CLI', () => {
+describe('supabase-js add', () => {
   it('adds every file for the accounts template', () => {
     const { cwd, result } = runCli(['add', 'accounts'])
 
     expect(result.status).toBe(0)
-    expect(readFileSync(path.join(cwd, 'accounts.ts'), 'utf8')).toContain('createAccountLookup')
-    expect(readFileSync(path.join(cwd, 'accounts.types.ts'), 'utf8')).toContain('export interface Account')
+    expect(readFileSync(path.join(cwd, 'supabase/migrations/20260521101353_accounts.sql'), 'utf8')).toContain('Account owners can view their own avatars')
   })
 
   it('fails for an unknown template', () => {
@@ -50,12 +49,15 @@ describe('supabase-js CLI', () => {
 
   it('refuses to overwrite an existing generated file', () => {
     const cwd = createTempDirectory()
-    writeFileSync(path.join(cwd, 'accounts.ts'), '// existing file\n')
+    const dirname = path.join(cwd, 'supabase/migrations')
+    mkdirSync(dirname, { recursive: true });
+    writeFileSync(path.join(dirname, '20260521101353_accounts.sql'), '// existing file\n', {
+    })
 
     const { result } = runCli(['add', 'accounts'], cwd)
 
     expect(result.status).toBe(1)
-    expect(result.stderr).toContain('Refusing to overwrite existing file: accounts.ts')
-    expect(readFileSync(path.join(cwd, 'accounts.ts'), 'utf8')).toBe('// existing file\n')
+    expect(result.stderr).toContain('Refusing to overwrite existing file: supabase/migrations/20260521101353_accounts.sql')
+    expect(readFileSync(path.join(cwd, 'supabase/migrations/20260521101353_accounts.sql'), 'utf8')).toBe('// existing file\n')
   })
 })

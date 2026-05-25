@@ -1,3 +1,5 @@
+// @ts-check
+
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -6,11 +8,11 @@ function getPackageRoot() {
 }
 
 function getTemplatesRoot() {
-  return path.join(getPackageRoot(), 'templates')
+  return path.join(getPackageRoot(), '.')
 }
 
 function loadManifest() {
-  const manifestPath = path.join(getTemplatesRoot(), 'manifest.json')
+  const manifestPath = path.join(getPackageRoot(), 'manifest.json')
   return JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 }
 
@@ -75,7 +77,8 @@ function copyTemplate(templateName, targetDirectory = process.cwd()) {
   }
 
   for (const file of plannedCopies) {
-    fs.mkdirSync(path.dirname(file.destinationPath), { recursive: true })
+    const dirname = path.dirname(file.destinationPath)
+    fs.mkdirSync(dirname, { recursive: true });
     fs.copyFileSync(file.sourcePath, file.destinationPath)
   }
 
