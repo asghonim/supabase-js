@@ -34,7 +34,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check for Prerelease Version
+        id: version_check
+        run: |
+          # Read version from package.json
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Detected version: $VERSION"
+          
+          # Check if version contains a hyphen (e.g., 1.0.0-alpha.0)
+          if [[ "$VERSION" == *-* ]]; then
+            echo "Prerelease detected."
+            echo "TAG_FLAG=--tag alpha" >> $GITHUB_ENV
+          else
+            echo "Stable release detected."
+            echo "TAG_FLAG=" >> $GITHUB_ENV
+          fi
+
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: npm publish --access public --provenance ${{ env.TAG_FLAG }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
