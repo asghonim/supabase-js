@@ -1,2 +1,3 @@
-export { createAccountsDb, AccountAvatarRow, AccountRow, AccountNameRow, AccountsDb} from './accounts';
-export {Database} from './database'
+export { createAccountsDb } from './accounts';
+export type { AccountAvatarRow, AccountRow, AccountNameRow, AccountsDb } from './accounts';
+export type { Database } from './database'
