@@ -54,7 +54,7 @@ export function createContactDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    assignTo(id: string, accountId: number) {
+    assignTo(id: string, accountId: number | null) {
       return supabase
         .from('contact_submissions')
         .update({ assigned_to_account_id: accountId })

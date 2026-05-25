@@ -315,7 +315,7 @@ describe('createContactDb', () => {
         assigned_to_account_id: userB.accountId,
       })
 
-      const { data, error } = await adminDb.assignTo(sub.id, null as unknown as number)
+      const { data, error } = await adminDb.assignTo(sub.id, null)
       expect(error).toBeNull()
       expect(data!.assigned_to_account_id).toBeNull()
     })
