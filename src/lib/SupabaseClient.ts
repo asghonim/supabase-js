@@ -1,5 +1,3 @@
-import type { SupabaseClientOptions } from '../types'
-
 export class SupabaseClient {
   protected supabaseUrl: string
   protected supabaseKey: string
@@ -20,8 +18,7 @@ export class SupabaseClient {
  */
 export function createClient(
   supabaseUrl: string,
-  supabaseKey: string,
-  _options?: Partial<SupabaseClientOptions>
+  supabaseKey: string
 ): SupabaseClient {
   return new SupabaseClient(supabaseUrl, supabaseKey)
 }
