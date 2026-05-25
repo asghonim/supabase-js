@@ -31,11 +31,11 @@ export function createNotificationsDb(supabase: SupabaseClient<Database>) {
         query = query.eq('group_key', options.groupKey)
       }
 
-      if (options?.limit) {
+      if (options?.limit !== undefined) {
         query = query.limit(options.limit)
       }
 
-      if (options?.offset) {
+      if (options?.offset !== undefined) {
         query = query.range(options.offset, options.offset + (options.limit ?? 20) - 1)
       }
 

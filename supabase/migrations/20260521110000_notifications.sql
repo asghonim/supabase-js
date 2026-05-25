@@ -84,7 +84,7 @@ CREATE INDEX idx_notification_events_entity
 CREATE INDEX idx_notification_events_actor
     ON public.notification_events(actor_account_id)
     WHERE actor_account_id IS NOT NULL;
-CREATE OR REPLACE FUNCTION private.on_insert_notification_events()      RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION private.on_insert_notification_events() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_notification_events_inserted      BEFORE INSERT ON public.notification_events
 	FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_events();
 
@@ -110,7 +110,7 @@ CREATE INDEX idx_notification_recipients_event
     ON public.notification_recipients(event_id);
 CREATE INDEX idx_notification_recipients_account
     ON public.notification_recipients(account_id, created_at DESC);
-CREATE OR REPLACE FUNCTION private.on_insert_notification_recipients()  RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION private.on_insert_notification_recipients()  RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_notification_recipients_inserted  BEFORE INSERT ON public.notification_recipients  FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_recipients();
 
 
@@ -150,7 +150,7 @@ CREATE INDEX idx_notification_inbox_group
     WHERE group_key IS NOT NULL;
 CREATE INDEX idx_notification_inbox_recipient
     ON public.notification_inbox(recipient_id);
-CREATE OR REPLACE FUNCTION private.on_insert_notification_inbox()       RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION private.on_insert_notification_inbox()       RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_notification_inbox_inserted       BEFORE INSERT ON public.notification_inbox
 	FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_inbox();
 
@@ -188,11 +188,11 @@ CREATE INDEX idx_notification_deliveries_channel_status
     ON public.notification_deliveries(channel, status);
 
 CREATE OR REPLACE FUNCTION private.on_update_notification_delivery()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_update_notification_delivery
     BEFORE UPDATE ON public.notification_deliveries
     FOR EACH ROW EXECUTE FUNCTION private.on_update_notification_delivery();
-CREATE OR REPLACE FUNCTION private.on_insert_notification_deliveries()  RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION private.on_insert_notification_deliveries()  RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_notification_deliveries_inserted  BEFORE INSERT ON public.notification_deliveries  FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_deliveries();
 
 
@@ -221,11 +221,11 @@ CREATE INDEX idx_notification_preferences_type
     ON public.notification_preferences(notification_type, channel);
 
 CREATE OR REPLACE FUNCTION private.on_update_notification_preference()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_update_notification_preference
     BEFORE UPDATE ON public.notification_preferences
     FOR EACH ROW EXECUTE FUNCTION private.on_update_notification_preference();
-CREATE OR REPLACE FUNCTION private.on_insert_notification_preferences() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION private.on_insert_notification_preferences() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_notification_preferences_inserted BEFORE INSERT ON public.notification_preferences FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_preferences();
 
 
@@ -256,11 +256,11 @@ CREATE INDEX idx_notification_templates_lookup
     WHERE is_active = TRUE;
 
 CREATE OR REPLACE FUNCTION private.on_update_notification_template()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_update_notification_template
     BEFORE UPDATE ON public.notification_templates
     FOR EACH ROW EXECUTE FUNCTION private.on_update_notification_template();
-CREATE OR REPLACE FUNCTION private.on_insert_notification_templates()   RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION private.on_insert_notification_templates()   RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_notification_templates_inserted   BEFORE INSERT ON public.notification_templates   FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_templates();
 
 
@@ -288,7 +288,7 @@ CREATE INDEX idx_notification_digests_account
 CREATE INDEX idx_notification_digests_pending
     ON public.notification_digests(scheduled_for)
     WHERE sent_at IS NULL;
-CREATE OR REPLACE FUNCTION private.on_insert_notification_digests()     RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION private.on_insert_notification_digests()     RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_notification_digests_inserted     BEFORE INSERT ON public.notification_digests
 	FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_digests();
 
@@ -404,7 +404,7 @@ BEGIN
       AND  private.owns_account(account_id)
       AND  is_read = FALSE;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Mark all unarchived inbox items as read for the calling user.
 CREATE OR REPLACE FUNCTION public.mark_all_notifications_read()
@@ -418,7 +418,7 @@ BEGIN
       AND  ni.is_read = FALSE
       AND  ni.archived_at IS NULL;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Archive a single inbox item (soft delete).
 CREATE OR REPLACE FUNCTION public.archive_notification(p_inbox_id BIGINT)
@@ -430,7 +430,7 @@ BEGIN
       AND  private.owns_account(account_id)
       AND  archived_at IS NULL;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Unread count for the calling user (excludes archived).
 CREATE OR REPLACE FUNCTION public.unread_notification_count()
@@ -441,4 +441,4 @@ RETURNS BIGINT AS $$
     WHERE  a.user_id = auth.uid()
       AND  ni.is_read = FALSE
       AND  ni.archived_at IS NULL;
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
