@@ -25,8 +25,8 @@ function assertRelativeFilePath(filePath, fieldName) {
 }
 
 function isPathWithin(basePath, candidatePath) {
-  const relativePath = path.relative(basePath, candidatePath)
-  return relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath)
+  const relativePath = normalizeForComparison(path.relative(basePath, candidatePath))
+  return relativePath === '' || (relativePath !== '..' && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath))
 }
 
 function normalizeForComparison(value) {
