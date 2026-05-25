@@ -4,7 +4,7 @@ CREATE SCHEMA IF NOT EXISTS private;
 
 CREATE TABLE public.accounts (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id         UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id         UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
@@ -34,7 +34,7 @@ BEGIN
         NOW(),
         NOW()
     )
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (user_id) DO NOTHING;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
