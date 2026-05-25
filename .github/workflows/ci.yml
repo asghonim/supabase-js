@@ -31,9 +31,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install peer dependencies
-        run: npm install @supabase/ssr @supabase/supabase-js next
-
       - name: Type-check
         run: npm run lint
 
