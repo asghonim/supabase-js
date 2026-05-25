@@ -1,6 +1,10 @@
 {
   "name": "@asghonim/supabase-js",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/asghonim/supabase-js"
+  },
   "description": "Supabase JS client",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
