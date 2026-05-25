@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
+import type { Database } from './database'
 
 // Types derived directly from the generated schema — no manual duplicates
 export type ContactStatus      = Database['public']['Enums']['contact_status']
