@@ -433,8 +433,8 @@ export type Database = {
           id: string
           is_internal: boolean
           metadata: Json
+          sender_account_id: number | null
           sender_type: Database["public"]["Enums"]["contact_sender_type"]
-          sender_user_id: string | null
           submission_id: string
         }
         Insert: {
@@ -443,8 +443,8 @@ export type Database = {
           id?: string
           is_internal?: boolean
           metadata?: Json
+          sender_account_id?: number | null
           sender_type?: Database["public"]["Enums"]["contact_sender_type"]
-          sender_user_id?: string | null
           submission_id: string
         }
         Update: {
@@ -453,11 +453,18 @@ export type Database = {
           id?: string
           is_internal?: boolean
           metadata?: Json
+          sender_account_id?: number | null
           sender_type?: Database["public"]["Enums"]["contact_sender_type"]
-          sender_user_id?: string | null
           submission_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "contact_messages_sender_account_id_fkey"
+            columns: ["sender_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contact_messages_submission_id_fkey"
             columns: ["submission_id"]
@@ -469,8 +476,8 @@ export type Database = {
       }
       contact_submissions: {
         Row: {
-          assigned_to_user_id: string | null
-          authenticated_user_id: string | null
+          assigned_to_account_id: number | null
+          authenticated_account_id: number | null
           category: string | null
           company_name: string | null
           created_at: string
@@ -494,8 +501,8 @@ export type Database = {
           user_agent: string | null
         }
         Insert: {
-          assigned_to_user_id?: string | null
-          authenticated_user_id?: string | null
+          assigned_to_account_id?: number | null
+          authenticated_account_id?: number | null
           category?: string | null
           company_name?: string | null
           created_at?: string
@@ -519,8 +526,8 @@ export type Database = {
           user_agent?: string | null
         }
         Update: {
-          assigned_to_user_id?: string | null
-          authenticated_user_id?: string | null
+          assigned_to_account_id?: number | null
+          authenticated_account_id?: number | null
           category?: string | null
           company_name?: string | null
           created_at?: string
@@ -543,7 +550,22 @@ export type Database = {
           updated_at?: string
           user_agent?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contact_submissions_assigned_to_account_id_fkey"
+            columns: ["assigned_to_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_submissions_authenticated_account_id_fkey"
+            columns: ["authenticated_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       credit_notes: {
         Row: {
