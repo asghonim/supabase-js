@@ -10,14 +10,7 @@ export async function updateSession(request: NextRequest) {
   const rawApiKey = request.headers.get('x-api-key')
 
   if (rawApiKey) {
-    const response = await updateSessionFromApi(request);
-    if (!response) {
-      return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 })
-    }
-    if (response instanceof Error) {
-      return new Response(JSON.stringify({ error: response.message }), { status: 500 })
-    }
-    return response;
+    return await updateSessionFromApi(request);
   }
   const sanitizedRequest = new NextRequest(request, { headers: requestHeaders })
   return await updateSessionFromCookies(sanitizedRequest);
