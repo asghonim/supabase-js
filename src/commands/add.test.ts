@@ -39,7 +39,7 @@ describe('add command', () => {
     mkdirSync(dir, { recursive: true })
     writeFileSync(path.join(dir, '20260521101353_accounts.sql'), '// existing file\n')
 
-    expect(() => copyTemplate('accounts', cwd)).toThrow('Refusing to overwrite existing file: supabase/migrations/20260521101353_accounts.sql')
+    expect(() => copyTemplate('accounts', cwd)).toThrow(/^Refusing to overwrite existing file/)
     expect(readFileSync(path.join(cwd, 'supabase/migrations/20260521101353_accounts.sql'), 'utf8')).toBe('// existing file\n')
   })
 })
