@@ -174,7 +174,7 @@ CREATE POLICY "Allow users to view own messages"
         )
     );
 
-INSERT INTO notification_templates
+INSERT INTO public.notification_templates
     (type, channel, locale, version, is_active, subject_template, body_template)
 VALUES
 (
