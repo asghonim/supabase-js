@@ -17,7 +17,6 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
-  admin,
   addOrgMember,
   createTestOrg,
   createTestUser,

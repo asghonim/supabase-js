@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database, Json } from './database'
+import type { Database } from './database'
 
 export function createRbacDb(supabase: SupabaseClient<Database>) {
   const db = supabase
