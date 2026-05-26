@@ -46,23 +46,23 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "@types/node": "^25.9.1",
-    "@vitest/coverage-v8": "^2.1.9",
+    "@vitest/coverage-v8": "^4.1.7",
     "eslint": "^10.4.0",
     "globals": "^17.6.0",
     "jiti": "^2.7.0",
-    "next": "16.1.6",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.5",
+    "next": "^16.2",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.60.0",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.7"
   },
   "bin": "./bin/cli.js",
   "dependencies": {
-    "commander": "^12.1.0"
+    "commander": "^14.0.3"
   },
   "peerDependencies": {
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
-    "next": "16.1.6"
+    "next": "^16.2.6"
   }
 }
