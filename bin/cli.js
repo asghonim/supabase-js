@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 
+// eslint-disable-next-line no-undef
 const { Command } = require('commander')
+// eslint-disable-next-line no-undef
 const { addCommand, loadManifest } = require('../src/commands/add.js')
 
 const program = new Command()
@@ -27,4 +30,5 @@ program
     }
   })
 
+// eslint-disable-next-line no-undef
 program.parse(process.argv)
