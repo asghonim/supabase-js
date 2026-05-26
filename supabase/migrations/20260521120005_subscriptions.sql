@@ -36,6 +36,11 @@ CREATE POLICY "Allow org admins to insert billing emails"
     TO authenticated
     WITH CHECK (exists(SELECT 1 FROM public.organizations o WHERE o.id = organization_id AND private.is_org_admin(o.id)));
 
+CREATE POLICY "Allow owner to view billing emails"
+    ON public.organization_billing_emails FOR SELECT
+    TO authenticated
+    USING (private.is_org_admin(organization_id));
+
 
 -- ================================================================
 -- ENUMS
@@ -856,7 +861,15 @@ ALTER TABLE public.plan_versions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow authenticated users to read active plan versions"
     ON public.plan_versions FOR SELECT
     TO authenticated
-    USING (is_active = TRUE);
+    USING (
+        is_active = TRUE
+        AND EXISTS (
+            SELECT 1 FROM public.plans p
+            WHERE p.id = plan_id
+              AND p.is_active = TRUE
+              AND p.is_public = TRUE
+        )
+    );
 
 ALTER TABLE public.features ENABLE ROW LEVEL SECURITY;
 
@@ -1026,10 +1039,10 @@ BEGIN
         RAISE EXCEPTION 'subscription % not found', p_subscription_id;
     END IF;
 
-    -- Remove stale plan-sourced rows; addon/override rows survive
+    -- Remove stale plan/addon rows before rebuilding; override/promotion rows survive
     DELETE FROM public.subscription_entitlements
     WHERE  subscription_id = p_subscription_id
-      AND  source = 'plan';
+      AND  source IN ('plan', 'addon');
 
     -- Rebuild baseline from the current plan version
     INSERT INTO public.subscription_entitlements (
