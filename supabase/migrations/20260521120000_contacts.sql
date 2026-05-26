@@ -108,7 +108,7 @@ CREATE TRIGGER on_contact_attachments_inserted  BEFORE INSERT ON contact_attachm
 
 -- ── Transactional outbox for async event processing ───────────────────────────
 
-CREATE TABLE outbox_events (
+CREATE TABLE public.outbox_events (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     aggregate_type  TEXT NOT NULL,
@@ -119,7 +119,7 @@ CREATE TABLE outbox_events (
     error           TEXT
 );
 CREATE OR REPLACE FUNCTION private.on_insert_outbox_events()        RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_outbox_events_inserted        BEFORE INSERT ON outbox_events        FOR EACH ROW EXECUTE FUNCTION private.on_insert_outbox_events();
+CREATE TRIGGER on_outbox_events_inserted        BEFORE INSERT ON public.outbox_events        FOR EACH ROW EXECUTE FUNCTION private.on_insert_outbox_events();
 
 -- ── Indexes ───────────────────────────────────────────────────────────────────
 
@@ -132,7 +132,7 @@ CREATE INDEX idx_contact_ip              ON contact_submissions(ip_address);
 
 CREATE INDEX idx_contact_messages_sub    ON contact_messages(submission_id, created_at);
 
-CREATE INDEX idx_outbox_unprocessed      ON outbox_events(created_at)
+CREATE INDEX idx_outbox_unprocessed      ON public.outbox_events(created_at)
     WHERE processed_at IS NULL;
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -146,7 +146,7 @@ CREATE INDEX idx_contact_subject_fts ON contact_submissions
 ALTER TABLE contact_submissions  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contact_messages     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contact_attachments  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE outbox_events        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.outbox_events ENABLE ROW LEVEL SECURITY;
 
 -- Authenticated users can view their own submissions
 CREATE POLICY "Allow users to view own submissions"
