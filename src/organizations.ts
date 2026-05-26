@@ -45,14 +45,6 @@ export function createOrganizationsDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    createOrganizationBillingEmail(orgId: number, billingEmail: string) {
-      return supabase
-        .from('organization_billing_emails')
-        .insert({ organization_id: orgId, billing_email: billingEmail })
-        .select()
-        .single()
-    },
-
     // ── Members ─────────────────────────────────────────────────────
 
     listMembers(orgId: number) {

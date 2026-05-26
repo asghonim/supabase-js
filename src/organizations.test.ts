@@ -2,13 +2,12 @@
  * RLS and helper tests for the organization system.
  *
  * Tables under test:
- *   organizations, organization_members, organization_names,
- *   organization_billing_emails
+ *   organizations, organization_members, organization_names
  *
  * Policies under test:
  *   - Members can SELECT their own organization and its roster
  *   - Non-members are filtered out silently (empty result, no error)
- *   - Org admins can INSERT names and billing emails; regular members cannot
+ *   - Org admins can INSERT names; regular members cannot
  *   - Org admins can manage membership; regular members cannot
  *   - Timestamps are set correctly by triggers
  *   - slug uniqueness is enforced
@@ -16,11 +15,10 @@
  * Notes:
  *   - organizations has no user INSERT/UPDATE/DELETE policy; mutations go
  *     through the admin/service-role client.
- *   - organization_names and organization_billing_emails have no SELECT
- *     policy; createOrganizationName / createOrganizationBillingEmail must
- *     be called from the admin client in production (RETURNING would be empty
- *     for a user-scoped session). The RLS restriction on INSERT is tested
- *     directly without relying on RETURNING.
+ *   - organization_names has no SELECT policy; createOrganizationName must be
+ *     called from the admin client in production (RETURNING would be empty for
+ *     a user-scoped session). The RLS restriction on INSERT is tested directly
+ *     without relying on RETURNING.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -214,41 +212,6 @@ describe('organization_names RLS', () => {
   })
 })
 
-// ── organization_billing_emails RLS ──────────────────────────────────────────
-
-describe('organization_billing_emails RLS', () => {
-  let orgAdmin: TestUser
-  let member: TestUser
-  let org: TestOrg
-
-  beforeAll(async () => {
-    orgAdmin = await createTestUser('org-billing-admin')
-    member = await createTestUser('org-billing-member')
-    org = await createTestOrg(orgAdmin.accountId, uniqueSlug('org-billing'))
-    await addOrgMember(org.id, orgAdmin.accountId, 'owner')
-    await addOrgMember(org.id, member.accountId, 'member')
-  })
-
-  afterAll(async () => {
-    await deleteTestUser(orgAdmin.id)
-    await deleteTestUser(member.id)
-  })
-
-  it('org admin can insert a billing email', async () => {
-    const { error } = await orgAdmin.client
-      .from('organization_billing_emails')
-      .insert({ organization_id: org.id, billing_email: 'billing@acme.com', created_at: new Date().toISOString() })
-    expect(error).toBeNull()
-  })
-
-  it('regular member cannot insert a billing email', async () => {
-    const { error } = await member.client
-      .from('organization_billing_emails')
-      .insert({ organization_id: org.id, billing_email: 'hack@evil.com', created_at: new Date().toISOString() })
-    expect(error).not.toBeNull()
-  })
-})
-
 // ── createOrganizationsDb ─────────────────────────────────────────────────────
 
 describe('createOrganizationsDb', () => {
@@ -409,18 +372,4 @@ describe('createOrganizationsDb', () => {
     })
   })
 
-  describe('createOrganizationBillingEmail', () => {
-    it('inserts and returns the billing email record (admin client)', async () => {
-      const { data, error } = await adminDb.createOrganizationBillingEmail(org.id, 'finance@acme.com')
-      expect(error).toBeNull()
-      expect(data!.billing_email).toBe('finance@acme.com')
-      expect(data!.organization_id).toBe(org.id)
-    })
-
-    it('regular member cannot insert via RLS', async () => {
-      const db = createOrganizationsDb(member.client)
-      const { error } = await db.createOrganizationBillingEmail(org.id, 'hack@evil.com')
-      expect(error).not.toBeNull()
-    })
-  })
 })

@@ -3,8 +3,7 @@
  *
  * Tables under test:
  *   permissions, platform_roles, platform_role_permissions,
- *   account_platform_roles, organization_roles, organization_role_permissions,
- *   api_scopes
+ *   account_platform_roles, organization_roles, organization_role_permissions
  *
  * RPCs under test:
  *   get_my_platform_permissions, get_my_org_permissions
@@ -351,37 +350,5 @@ describe('getMyOrgPermissions RPC', () => {
     const { data, error } = await db.getMyOrgPermissions(org.id)
     expect(error).toBeNull()
     expect(data).toEqual([])
-  })
-})
-
-// ── api_scopes RLS ────────────────────────────────────────────────────────────
-
-describe('api_scopes RLS', () => {
-  let user: TestUser
-
-  beforeAll(async () => {
-    user = await createTestUser('rbac-api-scopes-user')
-  })
-
-  afterAll(async () => {
-    await deleteTestUser(user.id)
-  })
-
-  it('authenticated user can list all api scopes', async () => {
-    const db = createRbacDb(user.client)
-    const { data, error } = await db.listApiScopes()
-    expect(error).toBeNull()
-    expect(data!.length).toBeGreaterThan(0)
-    const keys = data!.map(s => s.key)
-    expect(keys).toContain('read')
-    expect(keys).toContain('write')
-  })
-
-  it('api scopes are ordered by key', async () => {
-    const db = createRbacDb(user.client)
-    const { data, error } = await db.listApiScopes()
-    expect(error).toBeNull()
-    const keys = data!.map(s => s.key)
-    expect(keys).toEqual([...keys].sort())
   })
 })

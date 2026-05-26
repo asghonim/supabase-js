@@ -1386,10 +1386,6 @@ export type Database = {
       }
       organizations: {
         Row: {
-          billing_provider:
-            | Database["public"]["Enums"]["billing_provider"]
-            | null
-          billing_provider_customer_id: string | null
           created_at: string
           id: number
           metadata: Json
@@ -1398,10 +1394,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          billing_provider?:
-            | Database["public"]["Enums"]["billing_provider"]
-            | null
-          billing_provider_customer_id?: string | null
           created_at?: string
           id?: never
           metadata?: Json
@@ -1410,10 +1402,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          billing_provider?:
-            | Database["public"]["Enums"]["billing_provider"]
-            | null
-          billing_provider_customer_id?: string | null
           created_at?: string
           id?: never
           metadata?: Json
