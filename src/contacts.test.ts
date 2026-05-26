@@ -218,14 +218,14 @@ describe('createContactDb', () => {
   describe('listSubmissions', () => {
     it('returns only the calling user\'s own submissions', async () => {
       const subA = await seedSubmission(userA.accountId)
-      await seedSubmission(userB.accountId)
+      const subB = await seedSubmission(userB.accountId)
 
       const userADb = createContactDb(userA.client)
       const { data, error } = await userADb.listSubmissions()
       expect(error).toBeNull()
       const ids = data!.map(r => r.id)
       expect(ids).toContain(subA.id)
-      expect(ids).not.toContain(expect.not.stringContaining(subA.id))
+      expect(ids).not.toContain(subB.id)
       data!.forEach(r => expect(r.authenticated_account_id).toBe(userA.accountId))
     })
 
