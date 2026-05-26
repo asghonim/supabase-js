@@ -70,7 +70,7 @@ END;
 $$;
 
 CREATE TRIGGER on_update_contact_submissions
-    BEFORE UPDATE ON contact_submissions
+    BEFORE UPDATE ON public.contact_submissions
     FOR EACH ROW EXECUTE FUNCTION on_update_contact_submissions();
 CREATE OR REPLACE FUNCTION private.on_insert_contact_submissions()  RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_contact_submissions_inserted  BEFORE INSERT ON contact_submissions  FOR EACH ROW EXECUTE FUNCTION private.on_insert_contact_submissions();
