@@ -7,7 +7,7 @@ export function createRbacDb(supabase: SupabaseClient<Database>) {
   return {
     // ── Permissions ────────────────────────────────────────────────
 
-    listPermissions(scope?: 'platform' | 'organization' | 'project' | 'api') {
+  listPermissions(scope?: 'platform' | 'organization') {
       const q = db.from('permissions').select('*').order('scope').order('key')
       return scope ? q.eq('scope', scope) : q
     },

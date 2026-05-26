@@ -9,7 +9,7 @@
  *   get_my_platform_permissions, get_my_org_permissions
  *
  * Notes:
- *   - All read policies on permissions/platform_roles/api_scopes are open to
+ *   - All read policies on permissions/platform_roles are open to
  *     any authenticated user; unauthenticated access is not tested here.
  *   - Platform role assignment requires a platform admin; tests that mutate
  *     account_platform_roles use the admin client directly.
