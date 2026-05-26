@@ -26,9 +26,8 @@ export function createContactDb(supabase: SupabaseClient<Database>) {
 
       if (opts?.status) q = q.eq('status', opts.status)
       if (opts?.search) q = q.ilike('message', `%${opts.search}%`)
-      if (opts?.limit)  q = q.limit(opts.limit)
-      if (opts?.offset != null && opts.limit != null)
-        q = q.range(opts.offset, opts.offset + opts.limit - 1)
+      if (opts?.limit !== undefined) q = q.limit(opts.limit)
+      if (opts?.offset !== undefined) q = q.range(opts.offset, opts.offset + (opts.limit ?? 20) - 1)
 
       return q
     },
