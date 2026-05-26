@@ -7,3 +7,14 @@ export type {
   NotificationChannel, NotificationFrequency,
   PreferenceInsert, PreferenceUpdate, RecipientInsert
 } from './notifications';
+export { createContactDb } from './contacts';
+export type {
+  ContactDb,
+  ContactStatus,
+  ContactPriority,
+  ContactSenderType,
+  ContactSubmissionRow,
+  ContactSubmissionInsert,
+  ContactMessageRow,
+  ContactMessageInsert,
+} from './contacts';
