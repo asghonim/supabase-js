@@ -849,7 +849,7 @@ ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow authenticated users to read active public plans"
     ON public.plans FOR SELECT
     TO authenticated
-    USING (is_active = TRUE);
+    USING (is_active = TRUE AND is_public = TRUE);
 
 ALTER TABLE public.plan_versions ENABLE ROW LEVEL SECURITY;
 
