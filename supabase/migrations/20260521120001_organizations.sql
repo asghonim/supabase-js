@@ -42,7 +42,7 @@ ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_org_members_account ON public.organization_members(account_id);
 CREATE INDEX idx_org_members_org  ON public.organization_members(organization_id);
-CREATE OR REPLACE FUNCTION private.on_insert_organization_members() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE OR REPLACE FUNCTION private.on_insert_organization_members() RETURNS TRIGGER AS $$ BEGIN NEW.joined_at = NOW(); NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_organization_members_inserted BEFORE INSERT ON public.organization_members FOR EACH ROW EXECUTE FUNCTION private.on_insert_organization_members();
 
 CREATE OR REPLACE FUNCTION private.is_org_member(p_org_id BIGINT)
