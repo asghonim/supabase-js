@@ -210,6 +210,23 @@ CREATE POLICY "Allow admins to manage org membership"
     TO authenticated
     USING (private.is_org_admin(organization_id));
 
+CREATE POLICY "Allow org admins to view organization names"
+    ON public.organization_names FOR SELECT
+    TO authenticated
+    USING (private.is_org_admin(organization_id));
+
+CREATE POLICY "Allow org owner to view organization names"
+    ON public.organization_names FOR SELECT
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.organizations o
+            JOIN public.accounts a ON a.id = o.owner_account_id
+            WHERE o.id = organization_id
+              AND a.user_id = auth.uid()
+        )
+    );
+
 CREATE POLICY "Allow owner to insert organization name"
     ON public.organization_names FOR INSERT
     TO authenticated

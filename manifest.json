@@ -12,6 +12,10 @@
     "description": "Adds starter notifications migration files",
     "files": [
       {
+        "source": "supabase/migrations/20260521101353_accounts.sql",
+        "destination": "supabase/migrations/20260521101353_accounts.sql"
+      },
+      {
         "source": "supabase/migrations/20260521110000_notifications.sql",
         "destination": "supabase/migrations/20260521110000_notifications.sql"
       }
@@ -20,6 +24,14 @@
   "contacts": {
     "description": "Adds starter contacts migration files",
     "files": [
+      {
+        "source": "supabase/migrations/20260521101353_accounts.sql",
+        "destination": "supabase/migrations/20260521101353_accounts.sql"
+      },
+      {
+        "source": "supabase/migrations/20260521110000_notifications.sql",
+        "destination": "supabase/migrations/20260521110000_notifications.sql"
+      },
       {
         "source": "supabase/migrations/20260521120000_contacts.sql",
         "destination": "supabase/migrations/20260521120000_contacts.sql"
@@ -30,6 +42,10 @@
     "description": "Adds starter organizations migration files",
     "files": [
       {
+        "source": "supabase/migrations/20260521101353_accounts.sql",
+        "destination": "supabase/migrations/20260521101353_accounts.sql"
+      },
+      {
         "source": "supabase/migrations/20260521120001_organizations.sql",
         "destination": "supabase/migrations/20260521120001_organizations.sql"
       }
@@ -38,6 +54,14 @@
   "rbac": {
     "description": "Adds starter rbac migration files",
     "files": [
+      {
+        "source": "supabase/migrations/20260521101353_accounts.sql",
+        "destination": "supabase/migrations/20260521101353_accounts.sql"
+      },
+      {
+        "source": "supabase/migrations/20260521120001_organizations.sql",
+        "destination": "supabase/migrations/20260521120001_organizations.sql"
+      },
       {
         "source": "supabase/migrations/20260521120002_rbac.sql",
         "destination": "supabase/migrations/20260521120002_rbac.sql"

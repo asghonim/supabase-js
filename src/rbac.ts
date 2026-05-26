@@ -102,11 +102,6 @@ export function createRbacDb(supabase: SupabaseClient<Database>) {
       return db.rpc('get_my_org_permissions', { p_org_id: orgId })
     },
 
-    // ── API scopes ─────────────────────────────────────────────────
-
-    listApiScopes() {
-      return db.from('api_scopes').select('*').order('key')
-    },
   }
 }
 
