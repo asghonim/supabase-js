@@ -82,7 +82,7 @@ export function createOrganizationsDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    updateMemberRole(memberId: number, organizationRoleId: number | null) {
+    updateMemberRole(memberId: number, organizationRoleId: number) {
       return supabase
         .from('organization_members')
         .update({ organization_role_id: organizationRoleId })
