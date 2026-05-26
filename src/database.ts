@@ -2329,10 +2329,6 @@ export type Database = {
         Args: { p_inbox_id: number }
         Returns: undefined
       }
-      recompute_entitlements: {
-        Args: { p_subscription_id: number }
-        Returns: undefined
-      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       unread_notification_count: { Args: never; Returns: number }

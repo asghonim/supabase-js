@@ -22,3 +22,5 @@ export { createOrganizationsDb } from './organizations';
 export type { OrganizationsDb } from './organizations';
 export { createRbacDb } from './rbac';
 export type { RbacDb } from './rbac';
+export { createSubscriptionsDb } from './subscriptions';
+export type { SubscriptionsDb } from './subscriptions';
