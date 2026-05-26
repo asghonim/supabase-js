@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Required to put a comment into the pull-request
+      pull-requests: write
     strategy:
       matrix:
         node-version: [22.x, 24.x]
@@ -36,6 +38,10 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: 'Report Coverage'
+        if: github.event_name == 'pull_request' && always()
+        uses:  davelosert/vitest-coverage-report-action@v2
 
   build:
     name: Build
