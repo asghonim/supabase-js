@@ -275,7 +275,17 @@ CREATE POLICY "Org admins can manage custom roles"
 
 ALTER TABLE public.organization_role_permissions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can view organization role permissions"
-    ON public.organization_role_permissions FOR SELECT TO authenticated USING (TRUE);
+    ON public.organization_role_permissions FOR SELECT TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.organization_roles r
+            WHERE r.id = organization_role_id
+              AND (
+                  r.organization_id IS NULL
+                  OR private.is_org_member(r.organization_id)
+              )
+        )
+    );
 CREATE POLICY "Org admins can manage custom role permissions"
     ON public.organization_role_permissions FOR ALL TO authenticated
     USING (
@@ -294,5 +304,4 @@ CREATE POLICY "Org admins can manage custom role permissions"
               AND private.is_org_admin(r.organization_id)
         )
     );
-
 
