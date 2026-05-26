@@ -27,6 +27,7 @@
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
     "test": "vitest run --coverage",
     "lint": "tsc --noEmit",
+    "eslint": "eslint . --config eslint.config.mts --ext .js,.jsx,.ts,.tsx --format @microsoft/eslint-formatter-sarif",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -37,13 +38,22 @@
   "author": "asghonim",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@eslint/css": "^1.2.0",
+    "@eslint/js": "^10.0.1",
+    "@eslint/json": "^1.2.0",
+    "@eslint/markdown": "^8.0.2",
+    "@microsoft/eslint-formatter-sarif": "^3.1.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "@types/node": "^25.9.1",
     "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^10.4.0",
+    "globals": "^17.6.0",
+    "jiti": "^2.7.0",
     "next": "16.1.6",
     "tsup": "^8.0.2",
     "typescript": "^5.4.5",
+    "typescript-eslint": "^8.60.0",
     "vitest": "^2.1.8"
   },
   "bin": "./bin/cli.js",
