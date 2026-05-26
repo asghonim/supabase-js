@@ -19,5 +19,6 @@ export async function updateSession(request: NextRequest) {
     }
     return response;
   }
-  return await updateSessionFromCookies(request);
+  const sanitizedRequest = new NextRequest(request, { headers: requestHeaders })
+  return await updateSessionFromCookies(sanitizedRequest);
 }
