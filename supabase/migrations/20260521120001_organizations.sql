@@ -13,7 +13,7 @@ CREATE INDEX idx_organizations_owner ON public.organizations(owner_account_id);
 CREATE OR REPLACE FUNCTION private.on_update_organization() RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_update_organization BEFORE UPDATE ON public.organizations FOR EACH ROW EXECUTE FUNCTION private.on_update_organization();
 
-CREATE OR REPLACE FUNCTION private.on_insert_organizations() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE OR REPLACE FUNCTION private.on_insert_organizations() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_organizations_inserted BEFORE INSERT ON public.organizations FOR EACH ROW EXECUTE FUNCTION private.on_insert_organizations();
 
 CREATE TABLE public.organization_names (
