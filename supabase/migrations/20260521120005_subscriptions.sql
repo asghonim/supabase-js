@@ -31,7 +31,7 @@ RETURNS BOOLEAN AS $$
     SELECT private.has_org_permission(p_org_id, 'billing.manage');
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
 
-CREATE POLICY "Allow owner to insert billing emails"
+CREATE POLICY "Allow org admins to insert billing emails"
     ON public.organization_billing_emails FOR INSERT
     TO authenticated
     WITH CHECK (exists(SELECT 1 FROM public.organizations o WHERE o.id = organization_id AND private.is_org_admin(o.id)));
