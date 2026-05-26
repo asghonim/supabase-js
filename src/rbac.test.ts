@@ -98,7 +98,7 @@ describe('platform_roles RLS', () => {
     const superAdmin = data!.find(r => r.key === 'super_admin')!
     expect(superAdmin.platform_role_permissions.length).toBeGreaterThan(0)
     const permKeys = superAdmin.platform_role_permissions.map(
-      (p: any) => p.permissions.key,
+      (p: { permissions: { key: string } }) => p.permissions.key,
     )
     expect(permKeys).toContain('platform.admin')
   })
@@ -126,7 +126,7 @@ describe('account_platform_roles RLS', () => {
     const { data, error } = await db.getAccountPlatformRoles(userA.accountId)
     expect(error).toBeNull()
     expect(data!.length).toBe(1)
-    expect((data![0] as any).platform_roles.key).toBe('support')
+    expect((data![0] as { platform_roles: { key: string } }).platform_roles.key).toBe('support')
   })
 
   it('user cannot see another user\'s platform role assignments', async () => {
