@@ -1236,7 +1236,7 @@ export type Database = {
           invited_by_account_id: number | null
           joined_at: string
           organization_id: number
-          organization_role_id: number | null
+          organization_role_id: number
         }
         Insert: {
           account_id: number
@@ -1245,7 +1245,7 @@ export type Database = {
           invited_by_account_id?: number | null
           joined_at?: string
           organization_id: number
-          organization_role_id?: number | null
+          organization_role_id?: number
         }
         Update: {
           account_id?: number
@@ -1254,7 +1254,7 @@ export type Database = {
           invited_by_account_id?: number | null
           joined_at?: string
           organization_id?: number
-          organization_role_id?: number | null
+          organization_role_id?: number
         }
         Relationships: [
           {
@@ -1386,10 +1386,6 @@ export type Database = {
       }
       organizations: {
         Row: {
-          billing_provider:
-            | Database["public"]["Enums"]["billing_provider"]
-            | null
-          billing_provider_customer_id: string | null
           created_at: string
           id: number
           metadata: Json
@@ -1398,10 +1394,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          billing_provider?:
-            | Database["public"]["Enums"]["billing_provider"]
-            | null
-          billing_provider_customer_id?: string | null
           created_at?: string
           id?: never
           metadata?: Json
@@ -1410,10 +1402,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          billing_provider?:
-            | Database["public"]["Enums"]["billing_provider"]
-            | null
-          billing_provider_customer_id?: string | null
           created_at?: string
           id?: never
           metadata?: Json
