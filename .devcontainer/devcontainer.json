@@ -21,7 +21,8 @@
 				"alexkrechik.cucumberautocomplete",
 				"tamasfe.even-better-toml",
 				"GitHub.vscode-github-actions",
-				"vitest.explorer"
+				"vitest.explorer",
+				"usernamehw.errorlens"
 			]
 		}
 	}
