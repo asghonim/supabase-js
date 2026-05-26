@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database'
 
+// Unrecognised tokens are left as-is so missing vars are visible in output.
+export function render(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => vars[key] ?? match)
+}
+
 export type NotificationChannel = Database['public']['Enums']['notification_channel']
 export type NotificationFrequency = Database['public']['Enums']['notification_frequency']
 export type PreferenceInsert = Database['public']['Tables']['notification_preferences']['Insert']
@@ -241,6 +246,26 @@ export function createNotificationsDb(supabase: SupabaseClient<Database>) {
       }
 
       return query
+    },
+
+    /**
+     * Fetches the active email template for `type` and returns just the
+     * subject/body strings, or null if no active template exists.
+     */
+    async fetchTemplate(type: string, locale = 'en'): Promise<{ subject: string | null; body: string } | null> {
+      const { data } = await supabase
+        .from('notification_templates')
+        .select('subject_template, body_template')
+        .eq('type', type)
+        .eq('channel', 'email')
+        .eq('locale', locale)
+        .eq('is_active', true)
+        .order('version', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (!data) return null
+      return { subject: data.subject_template, body: data.body_template }
     },
 
     // ── Digests ──────────────────────────────────────────────────────

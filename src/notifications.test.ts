@@ -12,6 +12,39 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { admin, createTestUser, deleteTestUser, type TestUser } from './helpers'
+import { createNotificationsDb, render } from './notifications'
+
+// ── render ────────────────────────────────────────────────────────────────────
+
+describe('render', () => {
+  it('replaces a known token', () => {
+    expect(render('Hello {{name}}!', { name: 'Alice' })).toBe('Hello Alice!')
+  })
+
+  it('replaces multiple tokens', () => {
+    expect(render('{{greeting}}, {{name}}!', { greeting: 'Hi', name: 'Bob' })).toBe('Hi, Bob!')
+  })
+
+  it('replaces the same token multiple times', () => {
+    expect(render('{{x}} and {{x}}', { x: 'y' })).toBe('y and y')
+  })
+
+  it('leaves unknown tokens as-is', () => {
+    expect(render('Hello {{unknown}}!', {})).toBe('Hello {{unknown}}!')
+  })
+
+  it('leaves unmatched tokens when only some vars are provided', () => {
+    expect(render('{{a}} {{b}}', { a: 'A' })).toBe('A {{b}}')
+  })
+
+  it('returns the string unchanged when there are no tokens', () => {
+    expect(render('No tokens here.', { name: 'Alice' })).toBe('No tokens here.')
+  })
+
+  it('returns an empty string unchanged', () => {
+    expect(render('', {})).toBe('')
+  })
+})
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -317,6 +350,98 @@ describe('notification system RLS', () => {
         .eq('channel', 'email')
         .single()
       expect(data!.is_enabled).toBe(false)
+    })
+  })
+
+  // ── fetchTemplate ─────────────────────────────────────────────────────────
+
+  describe('fetchTemplate', () => {
+    it('returns subject and body for an existing active email template', async () => {
+      const type = `fetch.tmpl.${Date.now()}`
+      await admin.from('notification_templates').insert({
+        type,
+        channel: 'email',
+        locale: 'en',
+        subject_template: 'Hello {{name}}',
+        body_template: 'Welcome, {{name}}!',
+        is_active: true,
+      })
+
+      const db = createNotificationsDb(userA.client)
+      const result = await db.fetchTemplate(type)
+      expect(result).not.toBeNull()
+      expect(result!.subject).toBe('Hello {{name}}')
+      expect(result!.body).toBe('Welcome, {{name}}!')
+    })
+
+    it('returns null when no active template exists for the type', async () => {
+      const db = createNotificationsDb(userA.client)
+      const result = await db.fetchTemplate('nonexistent.type.xyz')
+      expect(result).toBeNull()
+    })
+
+    it('returns null for an inactive template', async () => {
+      const type = `fetch.tmpl.inactive.${Date.now()}`
+      await admin.from('notification_templates').insert({
+        type,
+        channel: 'email',
+        locale: 'en',
+        body_template: 'Inactive body',
+        is_active: false,
+      })
+
+      const db = createNotificationsDb(userA.client)
+      const result = await db.fetchTemplate(type)
+      expect(result).toBeNull()
+    })
+
+    it('defaults to en locale and returns null for a missing locale', async () => {
+      const type = `fetch.tmpl.locale.${Date.now()}`
+      await admin.from('notification_templates').insert({
+        type,
+        channel: 'email',
+        locale: 'fr',
+        body_template: 'Bonjour',
+        is_active: true,
+      })
+
+      const db = createNotificationsDb(userA.client)
+      // en locale doesn't exist for this type
+      const result = await db.fetchTemplate(type)
+      expect(result).toBeNull()
+
+      // but fr does
+      const frResult = await db.fetchTemplate(type, 'fr')
+      expect(frResult).not.toBeNull()
+      expect(frResult!.body).toBe('Bonjour')
+    })
+
+    it('returns the highest-version template when multiple versions exist', async () => {
+      const type = `fetch.tmpl.version.${Date.now()}`
+      await admin.from('notification_templates').insert([
+        { type, channel: 'email', locale: 'en', body_template: 'v1 body', is_active: true, version: 1 },
+        { type, channel: 'email', locale: 'en', body_template: 'v2 body', is_active: true, version: 2 },
+      ])
+
+      const db = createNotificationsDb(userA.client)
+      const result = await db.fetchTemplate(type)
+      expect(result).not.toBeNull()
+      expect(result!.body).toBe('v2 body')
+    })
+
+    it('does not return email templates for other channels', async () => {
+      const type = `fetch.tmpl.channel.${Date.now()}`
+      await admin.from('notification_templates').insert({
+        type,
+        channel: 'in_app',
+        locale: 'en',
+        body_template: 'In-app only',
+        is_active: true,
+      })
+
+      const db = createNotificationsDb(userA.client)
+      const result = await db.fetchTemplate(type)
+      expect(result).toBeNull()
     })
   })
 
