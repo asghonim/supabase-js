@@ -36,7 +36,7 @@ CREATE POLICY "Allow org admins to insert billing emails"
     TO authenticated
     WITH CHECK (exists(SELECT 1 FROM public.organizations o WHERE o.id = organization_id AND private.is_org_admin(o.id)));
 
-CREATE POLICY "Allow owner to view billing emails"
+CREATE POLICY "Allow org admins to view billing emails"
     ON public.organization_billing_emails FOR SELECT
     TO authenticated
     USING (private.is_org_admin(organization_id));
@@ -1024,7 +1024,7 @@ CREATE POLICY "Allow billing role to view contracts"
 --     boolean → TRUE wins (OR)
 -- ================================================================
 
-CREATE OR REPLACE FUNCTION public.recompute_entitlements(p_subscription_id BIGINT)
+CREATE OR REPLACE FUNCTION private.recompute_entitlements(p_subscription_id BIGINT)
 RETURNS VOID AS $$
 DECLARE
     v_org_id          BIGINT;
@@ -1039,12 +1039,10 @@ BEGIN
         RAISE EXCEPTION 'subscription % not found', p_subscription_id;
     END IF;
 
-    -- Remove stale plan/addon rows before rebuilding; override/promotion rows survive
     DELETE FROM public.subscription_entitlements
     WHERE  subscription_id = p_subscription_id
       AND  source IN ('plan', 'addon');
 
-    -- Rebuild baseline from the current plan version
     INSERT INTO public.subscription_entitlements (
         organization_id, subscription_id, feature_id, feature_key,
         value_boolean, value_limit, is_unlimited, source, computed_at
@@ -1069,7 +1067,6 @@ BEGIN
             source        = EXCLUDED.source,
             computed_at   = EXCLUDED.computed_at;
 
-    -- Layer active addon grants on top
     INSERT INTO public.subscription_entitlements (
         organization_id, subscription_id, feature_id, feature_key,
         value_boolean, value_limit, is_unlimited, source, computed_at
@@ -1104,3 +1101,7 @@ BEGIN
             computed_at   = NOW();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
+
+REVOKE EXECUTE ON FUNCTION private.recompute_entitlements(BIGINT) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION private.recompute_entitlements(BIGINT) TO service_role;
+

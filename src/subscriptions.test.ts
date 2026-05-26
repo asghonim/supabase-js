@@ -8,11 +8,6 @@
  *   - Org admins can INSERT billing emails; regular members cannot
  *   - Timestamps are set correctly by triggers
  *
- * Notes:
- *   - organization_billing_emails has no SELECT policy;
- *     createOrganizationBillingEmail must be called from the admin client in
- *     production (RETURNING would be empty for a user-scoped session). The RLS
- *     restriction on INSERT is tested directly without relying on RETURNING.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -90,6 +85,23 @@ describe('createSubscriptionsDb', () => {
       expect(error).toBeNull()
       expect(data!.billing_email).toBe('finance@acme.com')
       expect(data!.organization_id).toBe(org.id)
+    })
+
+    it('trigger overwrites a client-supplied created_at with server NOW()', async () => {
+      const fakeDate = '1999-01-01T00:00:00Z'
+      const before = new Date()
+
+      const { data, error } = await admin
+        .from('organization_billing_emails')
+        .insert({ organization_id: org.id, billing_email: 'trigger-test@acme.com', created_at: fakeDate })
+        .select()
+        .single()
+
+      expect(error).toBeNull()
+      const after = new Date()
+      const storedAt = new Date(data!.created_at)
+      expect(storedAt >= before).toBe(true)
+      expect(storedAt <= after).toBe(true)
     })
 
     it('regular member cannot insert via RLS', async () => {
