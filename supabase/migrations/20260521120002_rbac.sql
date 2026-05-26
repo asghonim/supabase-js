@@ -7,7 +7,6 @@ CREATE TABLE public.permissions (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_permissions_key   ON public.permissions(key);
 CREATE INDEX idx_permissions_scope ON public.permissions(scope);
 
 CREATE TABLE public.platform_roles (
