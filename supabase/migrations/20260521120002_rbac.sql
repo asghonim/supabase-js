@@ -58,8 +58,20 @@ CREATE TABLE public.organization_role_permissions (
 );
 CREATE INDEX idx_org_role_perms_role ON public.organization_role_permissions(organization_role_id);
 
-ALTER TABLE public.organization_members 
-    ADD COLUMN organization_role_id BIGINT REFERENCES public.organization_roles(id) ON DELETE RESTRICT;
+INSERT INTO public.organization_roles (organization_id, key, name, description, is_system) VALUES
+    (NULL, 'owner',   'Owner',           'Full organizational control; cannot be removed without transferring ownership', TRUE),
+    (NULL, 'admin',   'Administrator',   'Manage members, settings, and billing',                                         TRUE),
+    (NULL, 'member',  'Member',          'Standard team member access',                                                   TRUE),
+    (NULL, 'billing', 'Billing Manager', 'Billing and invoice access only',                                               TRUE);
+
+CREATE OR REPLACE FUNCTION private.default_member_role_id()
+RETURNS BIGINT AS $$
+    SELECT id FROM public.organization_roles WHERE key = 'member' AND organization_id IS NULL
+$$ LANGUAGE sql STABLE SET search_path = public, private;
+
+ALTER TABLE public.organization_members
+    ADD COLUMN organization_role_id BIGINT NOT NULL DEFAULT private.default_member_role_id()
+    REFERENCES public.organization_roles(id) ON DELETE RESTRICT;
 
 CREATE INDEX idx_org_members_org_role ON public.organization_members(organization_role_id);
 
@@ -118,16 +130,6 @@ FROM public.platform_roles pr
 JOIN public.permissions p ON p.key IN ('audit.view', 'security.review')
 WHERE pr.key = 'auditor';
 
-
--- ================================================================
--- SEED: ORGANIZATION ROLES (system)
--- ================================================================
-
-INSERT INTO public.organization_roles (organization_id, key, name, description, is_system) VALUES
-    (NULL, 'owner',   'Owner',           'Full organizational control; cannot be removed without transferring ownership', TRUE),
-    (NULL, 'admin',   'Administrator',   'Manage members, settings, and billing',                                         TRUE),
-    (NULL, 'member',  'Member',          'Standard team member access',                                                   TRUE),
-    (NULL, 'billing', 'Billing Manager', 'Billing and invoice access only',                                               TRUE);
 
 -- owner → everything
 INSERT INTO public.organization_role_permissions (organization_role_id, permission_id)

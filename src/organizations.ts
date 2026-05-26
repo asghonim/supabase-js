@@ -75,7 +75,7 @@ export function createOrganizationsDb(supabase: SupabaseClient<Database>) {
         .insert({
           organization_id: orgId,
           account_id: accountId,
-          organization_role_id: organizationRoleId ?? null,
+          ...(organizationRoleId !== undefined && { organization_role_id: organizationRoleId }),
           invited_by_account_id: invitedByAccountId ?? null,
         })
         .select()
