@@ -444,6 +444,21 @@ describe('notification system RLS', () => {
       const result = await db.fetchTemplate(type)
       expect(result).toBeNull()
     })
+
+    it('throws on a non-"no rows" database error instead of returning null', async () => {
+      const permissionError = { code: '42501', message: 'permission denied', details: null, hint: null }
+      const stubChain = {
+        select: () => stubChain,
+        eq: () => stubChain,
+        order: () => stubChain,
+        limit: () => stubChain,
+        single: () => Promise.resolve({ data: null, error: permissionError }),
+      }
+      const stubClient = { from: () => stubChain } as unknown as Parameters<typeof createNotificationsDb>[0]
+
+      const db = createNotificationsDb(stubClient)
+      await expect(db.fetchTemplate('any.type')).rejects.toMatchObject({ code: '42501' })
+    })
   })
 
   // ── notification_templates ────────────────────────────────────────────────
