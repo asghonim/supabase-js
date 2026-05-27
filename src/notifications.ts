@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database'
 
 // Unrecognised tokens are left as-is so missing vars are visible in output.
-export function render(template: string, vars: Record<string, string>): string {
+export function render(template: string, vars: Partial<Record<string, string>>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => vars[key] ?? match)
 }
 
