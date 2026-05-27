@@ -88,5 +88,29 @@
         "destination": "supabase/migrations/20260521120005_subscriptions.sql"
       }
     ]
+  },
+  "api": {
+    "description": "Adds starter API migration files",
+    "files": [
+      {
+        "source": "supabase/migrations/20260521101353_accounts.sql",
+        "destination": "supabase/migrations/20260521101353_accounts.sql"
+      },
+      {
+        "source": "supabase/migrations/20260521120001_organizations.sql",
+        "destination": "supabase/migrations/20260521120001_organizations.sql"
+      },
+      {
+        "source": "supabase/migrations/20260521120002_rbac.sql",
+        "destination": "supabase/migrations/20260521120002_rbac.sql"
+      },
+      {
+        "source": "supabase/migrations/20260522020000_api_keys.sql",
+        "destination": "supabase/migrations/20260522020000_api_keys.sql"
+      },
+      {
+
+      }
+    ]
   }
 }
