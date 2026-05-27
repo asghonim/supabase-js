@@ -2191,7 +2191,7 @@ export type Database = {
       usage_records: {
         Row: {
           created_at: string
-          feature_id: number
+          feature_id: number | null
           feature_key: string
           id: number
           idempotency_key: string | null
@@ -2201,11 +2201,11 @@ export type Database = {
           period_start: string
           quantity: number
           recorded_at: string
-          subscription_id: number
+          subscription_id: number | null
         }
         Insert: {
           created_at?: string
-          feature_id: number
+          feature_id?: number | null
           feature_key: string
           id?: never
           idempotency_key?: string | null
@@ -2215,11 +2215,11 @@ export type Database = {
           period_start: string
           quantity?: number
           recorded_at?: string
-          subscription_id: number
+          subscription_id?: number | null
         }
         Update: {
           created_at?: string
-          feature_id?: number
+          feature_id?: number | null
           feature_key?: string
           id?: never
           idempotency_key?: string | null
@@ -2229,7 +2229,7 @@ export type Database = {
           period_start?: string
           quantity?: number
           recorded_at?: string
-          subscription_id?: number
+          subscription_id?: number | null
         }
         Relationships: [
           {
@@ -2332,16 +2332,6 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       unread_notification_count: { Args: never; Returns: number }
-      verify_api_key: {
-        Args: { p_key_hash: string }
-        Returns: {
-          account_id: number
-          expires_at: string
-          id: number
-          org_id: number
-          scopes: string[]
-        }[]
-      }
     }
     Enums: {
       billing_interval: "daily" | "weekly" | "monthly" | "yearly"

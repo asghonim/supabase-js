@@ -37,7 +37,7 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
-    const row = data?.[0]
+    const row = data;
     if (!row) {
       return NextResponse.json({ error: 'Invalid or expired API key' }, { status: 401 })
     }

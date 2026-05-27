@@ -3,11 +3,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database'
 
 export type ApiKeyContext = {
-  keyId:     number
-  orgId:     number
+  keyId: number
+  orgId: number
   accountId: number
-  scopes:    string[]
-  expiresAt: string
+  scopes: string[]
+  expiresAt: string | null
 }
 
 const KEY_PREFIX = 'sk_live_'
@@ -109,12 +109,21 @@ export function createApiKeysDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    // ── Verification (admin client only) ──────────────────────────
+    // ── API scopes ────────────────────────────────────────────────
 
-    /** Verifies a key hash and bumps last_used_at. Use the admin client. */
-    verify(keyHash: string) {
-      return db.rpc('verify_api_key', { p_key_hash: keyHash })
+    listApiScopes() {
+      return db.from('api_scopes').select('*').order('key')
     },
+
+    verify(keyHash: string) {
+      return db
+        .from('api_keys')
+        .select('id, org_id, account_id, scopes, expires_at')
+        .eq('key_hash', keyHash)
+        .is('revoked_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
+    }
   }
 }
 
