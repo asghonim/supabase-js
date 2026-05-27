@@ -690,7 +690,7 @@ BEGIN
         SELECT id INTO NEW.subscription_id
         FROM public.subscriptions
         WHERE organization_id = NEW.organization_id
-          AND status = 'active'
+          AND status IN ('active', 'trialing')
         ORDER BY created_at DESC
         LIMIT 1;
     END IF;
