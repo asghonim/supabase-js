@@ -22,7 +22,8 @@
 				"tamasfe.even-better-toml",
 				"GitHub.vscode-github-actions",
 				"vitest.explorer",
-				"usernamehw.errorlens"
+				"usernamehw.errorlens",
+				"YoavBls.pretty-ts-errors"
 			]
 		}
 	}
