@@ -35,17 +35,6 @@ export function createEntitlementsDb(supabase: SupabaseClient<Database>) {
         .eq('feature_key', featureKey)
         .maybeSingle()
     },
-
-    /**
-     * Calls the `recompute_entitlements` DB function. Must be called
-     * after a subscription is created or changed, an addon is added or
-     * removed, or any override/promotion is applied.
-     */
-    recompute(subscriptionId: number) {
-      return supabase.rpc('recompute_entitlements', {
-        p_subscription_id: subscriptionId,
-      })
-    },
   }
 }
 

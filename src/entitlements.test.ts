@@ -4,12 +4,9 @@
  * Tables under test:
  *   subscription_entitlements
  *
- * RPCs under test:
- *   recompute_entitlements
  *
  * Notes:
  *   - Entitlements are org-scoped; members can only read their own org's data.
- *   - `recompute` is called after subscription changes; tested via admin.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
