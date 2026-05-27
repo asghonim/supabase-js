@@ -375,8 +375,9 @@ describe('notification system RLS', () => {
     })
 
     it('returns null when no active template exists for the type', async () => {
+      const type = `fetch.tmpl.missing.${Date.now()}`
       const db = createNotificationsDb(userA.client)
-      const result = await db.fetchTemplate('nonexistent.type.xyz')
+      const result = await db.fetchTemplate(type)
       expect(result).toBeNull()
     })
 
