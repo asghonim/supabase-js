@@ -255,87 +255,6 @@ export type Database = {
         }
         Relationships: []
       }
-      api_keys: {
-        Row: {
-          account_id: number
-          created_at: string
-          expires_at: string | null
-          id: number
-          key_hash: string
-          key_prefix: string
-          last_used_at: string | null
-          name: string
-          org_id: number
-          revoked_at: string | null
-          scopes: string[]
-        }
-        Insert: {
-          account_id: number
-          created_at?: string
-          expires_at?: string | null
-          id?: never
-          key_hash: string
-          key_prefix: string
-          last_used_at?: string | null
-          name: string
-          org_id: number
-          revoked_at?: string | null
-          scopes?: string[]
-        }
-        Update: {
-          account_id?: number
-          created_at?: string
-          expires_at?: string | null
-          id?: never
-          key_hash?: string
-          key_prefix?: string
-          last_used_at?: string | null
-          name?: string
-          org_id?: number
-          revoked_at?: string | null
-          scopes?: string[]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "api_keys_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "api_keys_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      api_scopes: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: number
-          key: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: never
-          key: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: never
-          key?: string
-          name?: string
-        }
-        Relationships: []
-      }
       billing_webhook_events: {
         Row: {
           billing_provider: Database["public"]["Enums"]["billing_provider"]
@@ -2191,7 +2110,7 @@ export type Database = {
       usage_records: {
         Row: {
           created_at: string
-          feature_id: number
+          feature_id: number | null
           feature_key: string
           id: number
           idempotency_key: string | null
@@ -2201,11 +2120,11 @@ export type Database = {
           period_start: string
           quantity: number
           recorded_at: string
-          subscription_id: number
+          subscription_id: number | null
         }
         Insert: {
           created_at?: string
-          feature_id: number
+          feature_id?: number | null
           feature_key: string
           id?: never
           idempotency_key?: string | null
@@ -2215,11 +2134,11 @@ export type Database = {
           period_start: string
           quantity?: number
           recorded_at?: string
-          subscription_id: number
+          subscription_id?: number | null
         }
         Update: {
           created_at?: string
-          feature_id?: number
+          feature_id?: number | null
           feature_key?: string
           id?: never
           idempotency_key?: string | null
@@ -2229,7 +2148,7 @@ export type Database = {
           period_start?: string
           quantity?: number
           recorded_at?: string
-          subscription_id?: number
+          subscription_id?: number | null
         }
         Relationships: [
           {
@@ -2332,16 +2251,6 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       unread_notification_count: { Args: never; Returns: number }
-      verify_api_key: {
-        Args: { p_key_hash: string }
-        Returns: {
-          account_id: number
-          expires_at: string
-          id: number
-          org_id: number
-          scopes: string[]
-        }[]
-      }
     }
     Enums: {
       billing_interval: "daily" | "weekly" | "monthly" | "yearly"

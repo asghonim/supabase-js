@@ -658,9 +658,9 @@ CREATE TRIGGER on_subscription_entitlements_inserted    BEFORE INSERT ON public.
 CREATE TABLE public.usage_records (
     id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     organization_id BIGINT      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-    subscription_id BIGINT      NOT NULL REFERENCES public.subscriptions(id) ON DELETE CASCADE,
-    feature_id      BIGINT      NOT NULL REFERENCES public.features(id)      ON DELETE RESTRICT,
-    feature_key     TEXT        NOT NULL,  -- denormalized
+    subscription_id BIGINT               REFERENCES public.subscriptions(id) ON DELETE CASCADE,
+    feature_id      BIGINT               REFERENCES public.features(id)      ON DELETE RESTRICT,
+    feature_key     TEXT        NOT NULL,  -- denormalized; subscription_id/feature_id auto-resolved by trigger
     quantity        BIGINT      NOT NULL DEFAULT 1,
     recorded_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     period_start    TIMESTAMPTZ NOT NULL,
@@ -675,7 +675,29 @@ CREATE INDEX idx_usage_records_org_feature_period
 CREATE INDEX idx_usage_records_subscription
     ON public.usage_records(subscription_id, recorded_at);
 CREATE OR REPLACE FUNCTION private.on_insert_usage_records()
-	RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.created_at = NOW();
+
+    IF NEW.feature_id IS NULL AND NEW.feature_key IS NOT NULL THEN
+        SELECT id INTO NEW.feature_id
+        FROM public.features
+        WHERE key = NEW.feature_key
+        LIMIT 1;
+    END IF;
+
+    IF NEW.subscription_id IS NULL AND NEW.organization_id IS NOT NULL THEN
+        SELECT id INTO NEW.subscription_id
+        FROM public.subscriptions
+        WHERE organization_id = NEW.organization_id
+          AND status = 'active'
+        ORDER BY created_at DESC
+        LIMIT 1;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_usage_records_inserted   BEFORE INSERT ON public.usage_records                FOR EACH ROW EXECUTE FUNCTION private.on_insert_usage_records();
 
 
@@ -707,6 +729,10 @@ CREATE TRIGGER on_usage_summaries_inserted BEFORE INSERT ON public.usage_summari
 CREATE OR REPLACE FUNCTION private.update_usage_summary()
 RETURNS TRIGGER AS $$
 BEGIN
+    IF NEW.subscription_id IS NULL OR NEW.feature_id IS NULL THEN
+        RETURN NEW;
+    END IF;
+
     INSERT INTO public.usage_summaries (
         organization_id, subscription_id, feature_id, feature_key,
         period_start, period_end, total_quantity, last_updated_at

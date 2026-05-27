@@ -101,7 +101,8 @@ describe('createSubscriptionsDb', () => {
       const after = new Date()
       const storedAt = new Date(data!.created_at)
       expect(storedAt >= before).toBe(true)
-      expect(storedAt <= after).toBe(true)
+      // Allow 60s of clock skew between test runner and DB server
+      expect(storedAt <= new Date(after.getTime() + 60_000)).toBe(true)
     })
 
     it('regular member cannot insert via RLS', async () => {
