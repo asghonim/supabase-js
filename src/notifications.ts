@@ -1,6 +1,33 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from './database'
 
+// Values are inserted verbatim — callers must ensure they are already safe for
+// the target context (plain text, SQL, etc.).  For HTML templates use renderHtml.
+export function render(template: string, vars: Partial<Record<string, string>>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => vars[key] ?? match)
+}
+
+const HTML_ESCAPES: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+}
+
+export function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c])
+}
+
+// Like render() but HTML-escapes every substituted value, safe for use with
+// body_template / subject_template fields that contain HTML markup.
+export function renderHtml(template: string, vars: Partial<Record<string, string>>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
+    const value = vars[key]
+    return value !== undefined ? escapeHtml(value) : match
+  })
+}
+
 export type NotificationChannel = Database['public']['Enums']['notification_channel']
 export type NotificationFrequency = Database['public']['Enums']['notification_frequency']
 export type PreferenceInsert = Database['public']['Tables']['notification_preferences']['Insert']
@@ -241,6 +268,31 @@ export function createNotificationsDb(supabase: SupabaseClient<Database>) {
       }
 
       return query
+    },
+
+    /**
+     * Fetches the active email template for `type` and returns just the
+     * subject/body strings, or null if no active template exists.
+     */
+    async fetchTemplate(type: string, locale = 'en'): Promise<{ subject: string | null; body: string } | null> {
+      const { data, error } = await supabase
+        .from('notification_templates')
+        .select('subject_template, body_template')
+        .eq('type', type)
+        .eq('channel', 'email')
+        .eq('locale', locale)
+        .eq('is_active', true)
+        .order('version', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (error) {
+        // PGRST116 = "no rows returned" — treat as not found
+        if (error.code === 'PGRST116') return null
+        throw error
+      }
+      if (!data) return null
+      return { subject: data.subject_template, body: data.body_template }
     },
 
     // ── Digests ──────────────────────────────────────────────────────
