@@ -238,6 +238,7 @@ describe('usage_records — record', () => {
 describe('usage_records — subscription_id trigger resolution', () => {
   let member: TestUser
   let org: TestOrg
+  let planId: number
   let planVersionId: number
   let subscriptionId: number
   let featureKey: string
@@ -248,15 +249,20 @@ describe('usage_records — subscription_id trigger resolution', () => {
     org = await createTestOrg(member.accountId, uniqueSlug('usage-trigger'))
     featureKey = `test.trigger.${Date.now()}`
 
+    await admin
+      .from('features')
+      .insert({ key: featureKey, name: 'Test Trigger Feature', type: 'metered' })
+
     const { data: plan } = await admin
       .from('plans')
       .insert({ name: 'Test Plan', slug: uniqueSlug('test-plan') })
       .select('id')
       .single()
+    planId = plan!.id
 
     const { data: pv } = await admin
       .from('plan_versions')
-      .insert({ plan_id: plan!.id, version_number: 1, price_amount: 0 })
+      .insert({ plan_id: planId, version_number: 1, price_amount: 0 })
       .select('id')
       .single()
     planVersionId = pv!.id
@@ -279,6 +285,8 @@ describe('usage_records — subscription_id trigger resolution', () => {
     if (recordId) await admin.from('usage_records').delete().eq('id', recordId)
     await admin.from('subscriptions').delete().eq('id', subscriptionId)
     await admin.from('plan_versions').delete().eq('id', planVersionId)
+    await admin.from('plans').delete().eq('id', planId)
+    await admin.from('features').delete().eq('key', featureKey)
     await deleteTestUser(member.id)
   })
 

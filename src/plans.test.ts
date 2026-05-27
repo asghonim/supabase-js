@@ -132,10 +132,12 @@ describe('plans — versions', () => {
     const { data: list } = await db.listPublic()
     if (!list?.length) return
 
-    const first = list[0]
-    const { data, error } = await db.getActiveVersion(first.id)
+    const plan = list.find(p => (p.plan_versions as Array<unknown>).length > 0)
+    if (!plan) return
+
+    const { data, error } = await db.getActiveVersion(plan.id)
     expect(error).toBeNull()
-    expect(data!.plan_id).toBe(first.id)
+    expect(data!.plan_id).toBe(plan.id)
     expect(data!.is_active).toBe(true)
   })
 
