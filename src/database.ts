@@ -255,6 +255,87 @@ export type Database = {
         }
         Relationships: []
       }
+      api_keys: {
+        Row: {
+          account_id: number
+          created_at: string
+          expires_at: string | null
+          id: number
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          org_id: number
+          revoked_at: string | null
+          scopes: string[]
+        }
+        Insert: {
+          account_id: number
+          created_at?: string
+          expires_at?: string | null
+          id?: never
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          org_id: number
+          revoked_at?: string | null
+          scopes?: string[]
+        }
+        Update: {
+          account_id?: number
+          created_at?: string
+          expires_at?: string | null
+          id?: never
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          org_id?: number
+          revoked_at?: string | null
+          scopes?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_scopes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: number
+          key: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: never
+          key: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: never
+          key?: string
+          name?: string
+        }
+        Relationships: []
+      }
       billing_webhook_events: {
         Row: {
           billing_provider: Database["public"]["Enums"]["billing_provider"]
