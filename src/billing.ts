@@ -110,15 +110,27 @@ export function createBillingDb(supabase: SupabaseClient<Database>) {
     // ── Webhook events ────────────────────────────────────────────────
 
     /**
-     * Upsert an inbound provider webhook — idempotent on
-     * (billing_provider, event_id). Returns the existing row when
-     * a duplicate arrives, so callers can skip re-processing.
+     * Insert an inbound provider webhook — idempotent on
+     * (billing_provider, event_id). On conflict the existing row is returned
+     * unchanged, so a provider retry cannot reset a processed/failed event
+     * back to pending.
      */
-    upsertWebhookEvent(data: WebhookInsert) {
+    async upsertWebhookEvent(data: WebhookInsert) {
+      const { data: inserted, error } = await supabase
+        .from('billing_webhook_events')
+        .upsert(data, { onConflict: 'billing_provider,event_id', ignoreDuplicates: true })
+        .select()
+        .maybeSingle()
+
+      if (error) return { data: null, error }
+      if (inserted) return { data: inserted, error: null }
+
+      // Row already existed and the insert was skipped — read it back as-is.
       return supabase
         .from('billing_webhook_events')
-        .upsert(data, { onConflict: 'billing_provider,event_id' })
-        .select()
+        .select('*')
+        .eq('billing_provider', data.billing_provider as BillingProvider)
+        .eq('event_id', data.event_id as string)
         .single()
     },
 

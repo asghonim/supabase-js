@@ -245,6 +245,39 @@ describe('billing_webhook_events', () => {
     await admin.from('billing_webhook_events').delete().eq('event_id', eventId)
   })
 
+  it('upsertWebhookEvent does not overwrite a processed event on provider retry', async () => {
+    const adminBilling = createBillingDb(admin)
+    const eventId = `evt_processed_${Date.now()}`
+
+    // Insert and mark as processed.
+    const { data: original } = await adminBilling.upsertWebhookEvent({
+      billing_provider: 'stripe',
+      event_id: eventId,
+      event_type: 'invoice.paid',
+      payload: {},
+      status: 'pending',
+    })
+    await admin
+      .from('billing_webhook_events')
+      .update({ status: 'processed' })
+      .eq('id', original!.id)
+
+    // Provider retries — caller passes status: 'pending' again.
+    const { data: retried, error } = await adminBilling.upsertWebhookEvent({
+      billing_provider: 'stripe',
+      event_id: eventId,
+      event_type: 'invoice.paid',
+      payload: {},
+      status: 'pending',
+    })
+
+    expect(error).toBeNull()
+    expect(retried!.id).toBe(original!.id)
+    expect(retried!.status).toBe('processed')
+
+    await admin.from('billing_webhook_events').delete().eq('event_id', eventId)
+  })
+
   it('getWebhookEvent retrieves by provider and event_id', async () => {
     const adminBilling = createBillingDb(admin)
     const eventId = `evt_get_${Date.now()}`

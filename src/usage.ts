@@ -3,16 +3,8 @@ import type { Database } from './database'
 
 type UsageRecordInsert = Database['public']['Tables']['usage_records']['Insert']
 
-export function createUsageDb(supabase: SupabaseClient<Database>) {
+export function createAdminUsageDb(supabase: SupabaseClient<Database>) {
   return {
-    // ── Recording ─────────────────────────────────────────────────────
-
-    /**
-     * Record a discrete usage event. The DB trigger automatically
-     * updates `usage_summaries` after each insert.
-     *
-     * Pass `idempotency_key` to prevent double-counting on retries.
-     */
     record(data: UsageRecordInsert) {
       return supabase
         .from('usage_records')
@@ -20,7 +12,13 @@ export function createUsageDb(supabase: SupabaseClient<Database>) {
         .select()
         .single()
     },
+  }
+}
 
+export type AdminUsageDb = ReturnType<typeof createAdminUsageDb>
+
+export function createUsageDb(supabase: SupabaseClient<Database>) {
+  return {
     // ── Queries ───────────────────────────────────────────────────────
 
     listRecords(

@@ -20,7 +20,7 @@ import {
   type TestOrg,
   type TestUser,
 } from './helpers'
-import { createUsageDb } from './usage'
+import { createAdminUsageDb, createUsageDb } from './usage'
 
 // ── usage_records RLS ─────────────────────────────────────────────────────────
 
@@ -164,8 +164,8 @@ describe('usage_records — record', () => {
     await deleteTestUser(member.id)
   })
 
-  it('org member can record a usage event for their org', async () => {
-    const db = createUsageDb(member.client)
+  it('admin can record a usage event', async () => {
+    const db = createAdminUsageDb(admin)
     const featureKey = `test.record.${Date.now()}`
     const { data, error } = await db.record({
       organization_id: org.id,
@@ -181,8 +181,23 @@ describe('usage_records — record', () => {
     await admin.from('usage_records').delete().eq('id', data!.id)
   })
 
+  it('non-admin client cannot insert into usage_records', async () => {
+    const { error } = await member.client
+      .from('usage_records')
+      .insert({
+        organization_id: org.id,
+        feature_key: `test.record.${Date.now()}`,
+        quantity: 1,
+        period_start: '2026-01-01',
+        period_end: '2026-01-31',
+      })
+      .select()
+      .single()
+    expect(error).not.toBeNull()
+  })
+
   it('record with idempotency_key prevents double-counting on retry', async () => {
-    const db = createUsageDb(member.client)
+    const db = createAdminUsageDb(admin)
     const featureKey = `test.idempotent.${Date.now()}`
     const idempotencyKey = `idem-${Date.now()}`
 
@@ -215,6 +230,89 @@ describe('usage_records — record', () => {
     }
 
     if (first) await admin.from('usage_records').delete().eq('id', first.id)
+  })
+})
+
+// ── usage_records — subscription_id trigger resolution ────────────────────────
+
+describe('usage_records — subscription_id trigger resolution', () => {
+  let member: TestUser
+  let org: TestOrg
+  let planVersionId: number
+  let subscriptionId: number
+  let featureKey: string
+  let recordId: number | null = null
+
+  beforeAll(async () => {
+    member = await createTestUser('usage-trigger-member')
+    org = await createTestOrg(member.accountId, uniqueSlug('usage-trigger'))
+    featureKey = `test.trigger.${Date.now()}`
+
+    const { data: plan } = await admin
+      .from('plans')
+      .insert({ name: 'Test Plan', slug: uniqueSlug('test-plan') })
+      .select('id')
+      .single()
+
+    const { data: pv } = await admin
+      .from('plan_versions')
+      .insert({ plan_id: plan!.id, version_number: 1, price_amount: 0 })
+      .select('id')
+      .single()
+    planVersionId = pv!.id
+
+    const { data: sub } = await admin
+      .from('subscriptions')
+      .insert({
+        organization_id: org.id,
+        plan_version_id: planVersionId,
+        status: 'trialing',
+        trial_start: new Date().toISOString(),
+        trial_end: new Date(Date.now() + 14 * 86400_000).toISOString(),
+      })
+      .select('id')
+      .single()
+    subscriptionId = sub!.id
+  })
+
+  afterAll(async () => {
+    if (recordId) await admin.from('usage_records').delete().eq('id', recordId)
+    await admin.from('subscriptions').delete().eq('id', subscriptionId)
+    await admin.from('plan_versions').delete().eq('id', planVersionId)
+    await deleteTestUser(member.id)
+  })
+
+  it('auto-resolves subscription_id for a trialing subscription', async () => {
+    const { data, error } = await admin
+      .from('usage_records')
+      .insert({
+        organization_id: org.id,
+        feature_key: featureKey,
+        quantity: 10,
+        period_start: '2026-01-01',
+        period_end: '2026-01-31',
+      })
+      .select('id, subscription_id')
+      .single()
+
+    expect(error).toBeNull()
+    expect(data!.subscription_id).toBe(subscriptionId)
+    recordId = data!.id
+  })
+
+  it('trial usage is aggregated into usage_summaries', async () => {
+    if (!recordId) return
+
+    const { data, error } = await admin
+      .from('usage_summaries')
+      .select('total_quantity')
+      .eq('organization_id', org.id)
+      .eq('subscription_id', subscriptionId)
+      .eq('feature_key', featureKey)
+      .single()
+
+    expect(error).toBeNull()
+    expect(data!.total_quantity).toBeGreaterThanOrEqual(10)
   })
 })
 
