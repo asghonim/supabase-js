@@ -78,8 +78,8 @@ updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 - Use `TIMESTAMPTZ` for all timestamps (never `TIMESTAMP`)
 - Use `JSONB` with `NOT NULL DEFAULT '{}'` for metadata/payload columns
 - Use `BOOLEAN NOT NULL DEFAULT FALSE` for flag columns
-- Use `NUMERIC(precision, scale)` for scores/monetary calculations stored as decimals
-- Store monetary amounts as integers (smallest currency unit)
+- Use `NUMERIC(precision, scale)` for non-monetary scores and percentages (e.g., `spam_score NUMERIC(5,2)`)
+- Store monetary amounts as `BIGINT` in the smallest currency unit (e.g., cents) — never use decimals for money
 
 ---
 
@@ -122,9 +122,10 @@ CREATE TRIGGER on_update_<table_name>
 
 ### Trigger Naming
 
-- Insert triggers: `on_<table_name>_inserted` or `on_insert_<table_name>`
+- Insert triggers: `on_<table_name>_inserted`
+- Insert functions: `private.on_insert_<table_name>()`
 - Update triggers: `on_update_<table_name>`
-- Functions live in the `private` schema
+- Update functions: `private.on_update_<table_name>()`
 
 ---
 
