@@ -62,6 +62,10 @@ BEGIN
     RETURNING next_position - 1
     INTO v_position;
 
+    IF v_position IS NULL THEN
+        RAISE EXCEPTION 'queue counter not found for queue_id %', p_queue_id;
+    END IF;
+
     RETURN v_position;
 END;
 $$;
