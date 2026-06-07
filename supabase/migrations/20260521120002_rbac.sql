@@ -6,6 +6,7 @@ CREATE TABLE public.permissions (
     scope       TEXT        NOT NULL CHECK (scope IN ('platform', 'organization', 'project', 'api')),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.permissions TO authenticated, service_role;
 
 CREATE INDEX idx_permissions_scope ON public.permissions(scope);
 
@@ -17,12 +18,14 @@ CREATE TABLE public.platform_roles (
     is_system   BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.platform_roles TO authenticated, service_role;
 
 CREATE TABLE public.platform_role_permissions (
     platform_role_id BIGINT NOT NULL REFERENCES public.platform_roles(id) ON DELETE CASCADE,
     permission_id    BIGINT NOT NULL REFERENCES public.permissions(id)     ON DELETE CASCADE,
     PRIMARY KEY (platform_role_id, permission_id)
 );
+GRANT ALL ON TABLE public.platform_role_permissions TO authenticated, service_role;
 
 CREATE INDEX idx_platform_role_perms_role ON public.platform_role_permissions(platform_role_id);
 
@@ -33,6 +36,7 @@ CREATE TABLE public.account_platform_roles (
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (account_id, platform_role_id)
 );
+GRANT ALL ON TABLE public.account_platform_roles TO authenticated, service_role;
 
 CREATE INDEX idx_account_platform_roles_account ON public.account_platform_roles(account_id);
 
@@ -47,6 +51,7 @@ CREATE TABLE public.organization_roles (
     is_system       BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.organization_roles TO authenticated, service_role;
 CREATE UNIQUE INDEX uq_org_role_key_scoped ON public.organization_roles(organization_id, key) WHERE organization_id IS NOT NULL;
 CREATE UNIQUE INDEX uq_org_role_key_system ON public.organization_roles(key) WHERE organization_id IS NULL;
 CREATE INDEX idx_org_roles_org ON public.organization_roles(organization_id);
@@ -56,6 +61,7 @@ CREATE TABLE public.organization_role_permissions (
     permission_id        BIGINT NOT NULL REFERENCES public.permissions(id)         ON DELETE CASCADE,
     PRIMARY KEY (organization_role_id, permission_id)
 );
+GRANT ALL ON TABLE public.organization_role_permissions TO authenticated, service_role;
 CREATE INDEX idx_org_role_perms_role ON public.organization_role_permissions(organization_role_id);
 
 INSERT INTO public.organization_roles (organization_id, key, name, description, is_system) VALUES

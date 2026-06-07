@@ -20,6 +20,7 @@ CREATE TABLE public.organization_billing_emails (
     billing_email   TEXT        NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.organization_billing_emails TO authenticated, service_role;
 ALTER TABLE public.organization_billing_emails ENABLE ROW LEVEL SECURITY;
 CREATE INDEX idx_organization_billing_emails_org ON public.organization_billing_emails(organization_id);
 
@@ -223,6 +224,7 @@ CREATE TABLE public.features (
     created_at  TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ          NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.features TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION private.on_update_feature()            
     RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
@@ -245,6 +247,7 @@ CREATE TABLE public.plans (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.plans TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION private.on_update_plan()
     RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
@@ -276,6 +279,7 @@ CREATE TABLE public.plan_versions (
     created_at                TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
     UNIQUE (plan_id, version_number)
 );
+GRANT ALL ON TABLE public.plan_versions TO authenticated, service_role;
 
 CREATE INDEX idx_plan_versions_plan
     ON public.plan_versions(plan_id);
@@ -296,6 +300,7 @@ CREATE TABLE public.plan_feature_entitlements (
     created_at      TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
     UNIQUE (plan_version_id, feature_id)
 );
+GRANT ALL ON TABLE public.plan_feature_entitlements TO authenticated, service_role;
 
 CREATE INDEX idx_plan_feature_entitlements_version
     ON public.plan_feature_entitlements(plan_version_id);
@@ -311,6 +316,7 @@ CREATE TABLE public.addons (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.addons TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION private.on_update_addon()
     RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
@@ -332,6 +338,7 @@ CREATE TABLE public.addon_versions (
     effective_from            TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
     created_at                TIMESTAMPTZ             NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.addon_versions TO authenticated, service_role;
 
 CREATE INDEX idx_addon_versions_addon ON public.addon_versions(addon_id);
 CREATE OR REPLACE FUNCTION private.on_insert_addon_versions()
@@ -348,6 +355,7 @@ CREATE TABLE public.addon_feature_entitlements (
     created_at       TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
     UNIQUE (addon_version_id, feature_id)
 );
+GRANT ALL ON TABLE public.addon_feature_entitlements TO authenticated, service_role;
 
 CREATE INDEX idx_addon_feature_entitlements_version
     ON public.addon_feature_entitlements(addon_version_id);
@@ -375,6 +383,7 @@ CREATE TABLE public.subscriptions (
     created_at                       TIMESTAMPTZ                NOT NULL DEFAULT NOW(),
     updated_at                       TIMESTAMPTZ                NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.subscriptions TO authenticated, service_role;
 
 CREATE INDEX idx_subscriptions_org
     ON public.subscriptions(organization_id);
@@ -408,6 +417,7 @@ CREATE TABLE public.subscription_addons (
     created_at                            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at                            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.subscription_addons TO authenticated, service_role;
 
 CREATE INDEX idx_subscription_addons_subscription
     ON public.subscription_addons(subscription_id);
@@ -458,6 +468,7 @@ CREATE TABLE public.subscription_change_requests (
     processed_at             TIMESTAMPTZ,
     expires_at               TIMESTAMPTZ                  NOT NULL DEFAULT (NOW() + INTERVAL '24 hours')
 );
+GRANT ALL ON TABLE public.subscription_change_requests TO authenticated, service_role;
 
 CREATE INDEX idx_change_requests_subscription
     ON public.subscription_change_requests(subscription_id);
@@ -513,6 +524,7 @@ CREATE TABLE public.invoices (
     created_at                  TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ            NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.invoices TO authenticated, service_role;
 
 CREATE INDEX idx_invoices_org
     ON public.invoices(organization_id);
@@ -553,6 +565,7 @@ CREATE TABLE public.invoice_line_items (
     metadata                      JSONB         NOT NULL DEFAULT '{}',
     created_at                    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.invoice_line_items TO authenticated, service_role;
 
 CREATE INDEX idx_invoice_line_items_invoice
     ON public.invoice_line_items(invoice_id);
@@ -575,6 +588,7 @@ CREATE TABLE public.credit_notes (
     created_at                      TIMESTAMPTZ               NOT NULL DEFAULT NOW(),
     voided_at                       TIMESTAMPTZ
 );
+GRANT ALL ON TABLE public.credit_notes TO authenticated, service_role;
 
 CREATE INDEX idx_credit_notes_invoice ON public.credit_notes(invoice_id);
 CREATE INDEX idx_credit_notes_org     ON public.credit_notes(organization_id);
@@ -601,6 +615,7 @@ CREATE TABLE public.payments (
     processed_at                       TIMESTAMPTZ,
     updated_at                         TIMESTAMPTZ             NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.payments TO authenticated, service_role;
 
 CREATE INDEX idx_payments_org
     ON public.payments(organization_id);
@@ -645,6 +660,7 @@ CREATE TABLE public.subscription_entitlements (
     created_at      TIMESTAMPTZ               NOT NULL DEFAULT NOW(),
     UNIQUE (organization_id, subscription_id, feature_id)
 );
+GRANT ALL ON TABLE public.subscription_entitlements TO authenticated, service_role;
 
 CREATE INDEX idx_entitlements_org_feature
     ON public.subscription_entitlements(organization_id, feature_key);
@@ -669,6 +685,7 @@ CREATE TABLE public.usage_records (
     metadata        JSONB       NOT NULL DEFAULT '{}',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.usage_records TO authenticated, service_role;
 
 CREATE INDEX idx_usage_records_org_feature_period
     ON public.usage_records(organization_id, feature_key, period_start, period_end);
@@ -716,6 +733,7 @@ CREATE TABLE public.usage_summaries (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (organization_id, subscription_id, feature_id, period_start, period_end)
 );
+GRANT ALL ON TABLE public.usage_summaries TO authenticated, service_role;
 
 CREATE INDEX idx_usage_summaries_org_feature
     ON public.usage_summaries(organization_id, feature_key);
@@ -770,6 +788,7 @@ CREATE TABLE public.subscription_events (
     occurred_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.subscription_events TO authenticated, service_role;
 
 CREATE INDEX idx_subscription_events_org
     ON public.subscription_events(organization_id, occurred_at DESC);
@@ -803,6 +822,7 @@ CREATE TABLE public.billing_webhook_events (
     created_at       TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
     UNIQUE (billing_provider, event_id)
 );
+GRANT ALL ON TABLE public.billing_webhook_events TO authenticated, service_role;
 ALTER TABLE public.billing_webhook_events ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_webhook_events_status
@@ -831,6 +851,7 @@ CREATE TABLE public.idempotency_keys (
     expires_at      TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '24 hours'),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.idempotency_keys TO authenticated, service_role;
 ALTER TABLE public.idempotency_keys ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_idempotency_keys_expires
@@ -860,6 +881,7 @@ CREATE TABLE public.subscription_contracts (
     created_at          TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ            NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.subscription_contracts TO authenticated, service_role;
 
 CREATE INDEX idx_contracts_org
     ON public.subscription_contracts(organization_id);
