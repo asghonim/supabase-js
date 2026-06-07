@@ -6,6 +6,7 @@ CREATE TABLE public.organizations (
     created_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.organizations TO authenticated, service_role;
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_organizations_owner ON public.organizations(owner_account_id);
@@ -22,6 +23,7 @@ CREATE TABLE public.organization_names (
     name            TEXT    NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.organization_names TO authenticated, service_role;
 ALTER TABLE public.organization_names ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_organization_names_org ON public.organization_names(organization_id);
@@ -38,6 +40,7 @@ CREATE TABLE public.organization_members (
     created_at              TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
     UNIQUE (organization_id, account_id)
 );
+GRANT ALL ON TABLE public.organization_members TO authenticated, service_role;
 ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_org_members_account ON public.organization_members(account_id);

@@ -60,6 +60,7 @@ CREATE TABLE public.contact_submissions (
 
     metadata                JSONB NOT NULL DEFAULT '{}'
 );
+GRANT ALL ON TABLE public.contact_submissions TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.on_update_contact_submissions()
 RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public, private AS $$
@@ -87,6 +88,7 @@ CREATE TABLE public.contact_messages (
     is_internal     BOOLEAN NOT NULL DEFAULT false,
     metadata        JSONB NOT NULL DEFAULT '{}'
 );
+GRANT ALL ON TABLE public.contact_messages TO authenticated, service_role;
 CREATE OR REPLACE FUNCTION private.on_insert_contact_messages()     RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_contact_messages_inserted     BEFORE INSERT ON contact_messages     FOR EACH ROW EXECUTE FUNCTION private.on_insert_contact_messages();
 
@@ -103,6 +105,7 @@ CREATE TABLE public.contact_attachments (
     size_bytes          BIGINT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+GRANT ALL ON TABLE public.contact_attachments TO authenticated, service_role;
 CREATE OR REPLACE FUNCTION private.on_insert_contact_attachments()  RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_contact_attachments_inserted  BEFORE INSERT ON contact_attachments  FOR EACH ROW EXECUTE FUNCTION private.on_insert_contact_attachments();
 
@@ -118,6 +121,7 @@ CREATE TABLE public.outbox_events (
     processed_at    TIMESTAMPTZ,
     error           TEXT
 );
+GRANT ALL ON TABLE public.outbox_events TO authenticated, service_role;
 CREATE OR REPLACE FUNCTION private.on_insert_outbox_events()        RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_outbox_events_inserted        BEFORE INSERT ON public.outbox_events        FOR EACH ROW EXECUTE FUNCTION private.on_insert_outbox_events();
 

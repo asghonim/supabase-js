@@ -17,6 +17,7 @@ CREATE TABLE public.api_scopes (
     description TEXT,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.api_scopes TO authenticated, service_role;
 
 INSERT INTO public.api_scopes (key, name, description) VALUES
     ('read',           'Read',           'Read-only access to all resources'),
@@ -44,6 +45,7 @@ CREATE TABLE public.api_keys (
     revoked_at   TIMESTAMPTZ,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.api_keys TO authenticated, service_role;
 
 CREATE INDEX idx_api_keys_org     ON public.api_keys(org_id);
 CREATE INDEX idx_api_keys_account ON public.api_keys(account_id);

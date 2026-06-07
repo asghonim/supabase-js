@@ -75,6 +75,7 @@ CREATE TABLE public.notification_events (
     occurred_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.notification_events TO authenticated, service_role;
 
 CREATE INDEX idx_notification_events_type
     ON public.notification_events(type, occurred_at DESC);
@@ -105,6 +106,7 @@ CREATE TABLE public.notification_recipients (
     created_at TIMESTAMPTZ                          NOT NULL DEFAULT NOW(),
     UNIQUE (event_id, account_id)
 );
+GRANT ALL ON TABLE public.notification_recipients TO authenticated, service_role;
 
 CREATE INDEX idx_notification_recipients_event
     ON public.notification_recipients(event_id);
@@ -139,6 +141,7 @@ CREATE TABLE public.notification_inbox (
     archived_at  TIMESTAMPTZ,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.notification_inbox TO authenticated, service_role;
 
 CREATE INDEX idx_notification_inbox_account
     ON public.notification_inbox(account_id, created_at DESC);
@@ -178,6 +181,7 @@ CREATE TABLE public.notification_deliveries (
     created_at          TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ       NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.notification_deliveries TO authenticated, service_role;
 
 CREATE INDEX idx_notification_deliveries_recipient
     ON public.notification_deliveries(recipient_id);
@@ -214,6 +218,7 @@ CREATE TABLE public.notification_preferences (
     updated_at        TIMESTAMPTZ                   NOT NULL DEFAULT NOW(),
     UNIQUE (account_id, notification_type, channel)
 );
+GRANT ALL ON TABLE public.notification_preferences TO authenticated, service_role;
 
 CREATE INDEX idx_notification_preferences_account
     ON public.notification_preferences(account_id);
@@ -250,6 +255,7 @@ CREATE TABLE public.notification_templates (
     updated_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     UNIQUE (type, channel, locale, version)
 );
+GRANT ALL ON TABLE public.notification_templates TO authenticated, service_role;
 
 CREATE INDEX idx_notification_templates_lookup
     ON public.notification_templates(type, channel, locale)
@@ -282,6 +288,7 @@ CREATE TABLE public.notification_digests (
     sent_at       TIMESTAMPTZ,
     created_at    TIMESTAMPTZ                   NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.notification_digests TO authenticated, service_role;
 
 CREATE INDEX idx_notification_digests_account
     ON public.notification_digests(account_id, scheduled_for);

@@ -1,6 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE SCHEMA IF NOT EXISTS private;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 
 CREATE TABLE public.accounts (
     id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -8,6 +9,7 @@ CREATE TABLE public.accounts (
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+GRANT ALL ON TABLE public.accounts TO authenticated, service_role;
 ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION private.on_create_account()
@@ -50,6 +52,7 @@ CREATE TABLE public.account_names (
     name        TEXT         NOT NULL CHECK (char_length(name) BETWEEN 1 AND 255),
     created_at  TIMESTAMPTZ  NOT NULL
 );
+GRANT ALL ON TABLE public.account_names TO authenticated, service_role;
 
 CREATE INDEX ON public.account_names(account_id, created_at DESC);
 
@@ -59,6 +62,7 @@ CREATE TABLE public.account_avatars (
     url         TEXT         NOT NULL CHECK (char_length(url) BETWEEN 1 AND 2048),
     created_at  TIMESTAMPTZ  NOT NULL
 );
+GRANT ALL ON TABLE public.account_avatars TO authenticated, service_role;
 
 CREATE INDEX ON public.account_avatars(account_id, created_at DESC);
 
