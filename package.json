@@ -29,7 +29,8 @@
     "lint": "tsc --noEmit",
     "eslint": "eslint . --config eslint.config.mts --ext .js,.jsx,.ts,.tsx",
     "prepublishOnly": "npm run build",
-    "gen:db": "supabase gen types --linked typescript > src/database.ts"
+    "gen:db": "supabase gen types --linked typescript > src/database.ts",
+    "reset:db": "supabase db reset --linked --yes"
   },
   "keywords": [
     "supabase",

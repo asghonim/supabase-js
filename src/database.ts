@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       account_avatars: {
@@ -860,6 +835,105 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      journal_entries: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: number
+          idempotency_key: string | null
+          posted_at: string | null
+          reference_id: number | null
+          reference_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: never
+          idempotency_key?: string | null
+          posted_at?: string | null
+          reference_id?: number | null
+          reference_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: never
+          idempotency_key?: string | null
+          posted_at?: string | null
+          reference_id?: number | null
+          reference_type?: string | null
+        }
+        Relationships: []
+      }
+      journal_lines: {
+        Row: {
+          amount: number
+          created_at: string
+          id: number
+          journal_entry_id: number
+          ledger_account_id: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: never
+          journal_entry_id: number
+          ledger_account_id: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: never
+          journal_entry_id?: number
+          ledger_account_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_lines_journal_entry_id_fkey"
+            columns: ["journal_entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_ledger_account_id_fkey"
+            columns: ["ledger_account_id"]
+            isOneToOne: false
+            referencedRelation: "ledger_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ledger_accounts: {
+        Row: {
+          account_type: Database["public"]["Enums"]["ledger_account_type"]
+          created_at: string
+          currency: string
+          description: string | null
+          id: number
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          account_type: Database["public"]["Enums"]["ledger_account_type"]
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: never
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          account_type?: Database["public"]["Enums"]["ledger_account_type"]
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: never
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
       }
       message_attachments: {
         Row: {
@@ -2506,6 +2580,97 @@ export type Database = {
           },
         ]
       }
+      wallet_holds: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          id: number
+          idempotency_key: string | null
+          reference_id: number | null
+          reference_type: string | null
+          released_at: string | null
+          status: Database["public"]["Enums"]["wallet_hold_status"]
+          wallet_id: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: never
+          idempotency_key?: string | null
+          reference_id?: number | null
+          reference_type?: string | null
+          released_at?: string | null
+          status?: Database["public"]["Enums"]["wallet_hold_status"]
+          wallet_id: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: never
+          idempotency_key?: string | null
+          reference_id?: number | null
+          reference_type?: string | null
+          released_at?: string | null
+          status?: Database["public"]["Enums"]["wallet_hold_status"]
+          wallet_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_holds_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallets: {
+        Row: {
+          created_at: string
+          currency: string
+          current_balance: number
+          id: number
+          is_active: boolean
+          ledger_account_id: number
+          owner_id: number
+          owner_type: Database["public"]["Enums"]["wallet_owner_type"]
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          current_balance?: number
+          id?: never
+          is_active?: boolean
+          ledger_account_id: number
+          owner_id: number
+          owner_type: Database["public"]["Enums"]["wallet_owner_type"]
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          current_balance?: number
+          id?: never
+          is_active?: boolean
+          ledger_account_id?: number
+          owner_id?: number
+          owner_type?: Database["public"]["Enums"]["wallet_owner_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallets_ledger_account_id_fkey"
+            columns: ["ledger_account_id"]
+            isOneToOne: false
+            referencedRelation: "ledger_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -2522,6 +2687,46 @@ export type Database = {
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       unread_notification_count: { Args: never; Returns: number }
+      wallet_available_balance: {
+        Args: { p_wallet_id: number }
+        Returns: number
+      }
+      wallet_deposit: {
+        Args: {
+          p_amount: number
+          p_description: string
+          p_idempotency_key?: string
+          p_reference_id?: number
+          p_reference_type?: string
+          p_source_account_id: number
+          p_wallet_id: number
+        }
+        Returns: number
+      }
+      wallet_spend: {
+        Args: {
+          p_amount: number
+          p_description: string
+          p_dest_account_id: number
+          p_idempotency_key?: string
+          p_reference_id?: number
+          p_reference_type?: string
+          p_wallet_id: number
+        }
+        Returns: number
+      }
+      wallet_transfer: {
+        Args: {
+          p_amount: number
+          p_description: string
+          p_from_wallet_id: number
+          p_idempotency_key?: string
+          p_reference_id?: number
+          p_reference_type?: string
+          p_to_wallet_id: number
+        }
+        Returns: number
+      }
     }
     Enums: {
       billing_interval: "daily" | "weekly" | "monthly" | "yearly"
@@ -2567,6 +2772,14 @@ export type Database = {
       feature_type: "boolean" | "limit" | "metered"
       invoice_status: "draft" | "open" | "paid" | "void" | "uncollectible"
       invoice_type: "subscription" | "one_time" | "credit_note"
+      ledger_account_type:
+        | "wallet"
+        | "bank"
+        | "revenue"
+        | "platform_fee"
+        | "escrow"
+        | "refund_reserve"
+        | "system"
       notification_channel:
         | "in_app"
         | "email"
@@ -2624,6 +2837,8 @@ export type Database = {
         | "resolved"
         | "closed"
         | "spam"
+      wallet_hold_status: "active" | "released" | "consumed" | "expired"
+      wallet_owner_type: "account" | "organization"
       webhook_event_status: "pending" | "processed" | "failed" | "ignored"
     }
     CompositeTypes: {
@@ -2750,9 +2965,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       billing_interval: ["daily", "weekly", "monthly", "yearly"],
@@ -2802,6 +3014,15 @@ export const Constants = {
       feature_type: ["boolean", "limit", "metered"],
       invoice_status: ["draft", "open", "paid", "void", "uncollectible"],
       invoice_type: ["subscription", "one_time", "credit_note"],
+      ledger_account_type: [
+        "wallet",
+        "bank",
+        "revenue",
+        "platform_fee",
+        "escrow",
+        "refund_reserve",
+        "system",
+      ],
       notification_channel: [
         "in_app",
         "email",
@@ -2867,6 +3088,8 @@ export const Constants = {
         "closed",
         "spam",
       ],
+      wallet_hold_status: ["active", "released", "consumed", "expired"],
+      wallet_owner_type: ["account", "organization"],
       webhook_event_status: ["pending", "processed", "failed", "ignored"],
     },
   },
