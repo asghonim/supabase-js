@@ -1,0 +1,26 @@
+# Database Migration Instructions
+
+- Always prefer `SECURITY INVOKER` unless absolutely necessary
+- Add timestamp management triggers immediately after each table. Name the function and the trigger the same name. The `BEFORE` triggers should be named `on_insert_x`. The AFTER triggers should be named `on_x_inserted` etc. Create a separate trigger function per table, do not share trigger functions.
+- Each table must have created_at that is set in the `on_insert_x` trigger
+- Always set search_path
+- Enable row level security immediately after each table creation
+- Use the following naming convention for RLS policies
+  - CREATE POLICY "Account owners can view their own accounts”
+  - CREATE POLICY "Org members can view api keys”
+- Always scope policies to `TO authenticated` (not public/anon) unless explicitly needed
+- Define indexes immediately after each table creation. Use `idx_<table>_<column(s)>` format: `idx_api_keys_org`, `idx_org_members_account`
+- Index the following
+  - Foreign key columns (always)
+  - Columns used in RLS policies and permission functions
+  - Columns used in WHERE clauses for common queries
+  - Composite indexes for (parent_id, created_at DESC) on historical tables
+  - Partial indexes for active/unprocessed records: `WHERE revoked_at IS NULL`, `WHERE processed_at IS NULL`
+  - GIN indexes with `pg_trgm` for full-text search on text columns
+- Reference tables using a bigint primary auto increment primary key. Add a unique uuid with default v7 after every bigint primary id.
+- Use event sourcing when possible. Tables are read only. To update data, we insert a new row with a newer created_at. For fields that need audit history (names, avatars, emails), create a separate read-only table: account_names, account_avatars, etc.
+- Always specify `ON DELETE` behavior explicitly. Use `RESTRICT` unless absolutely necessary.
+- Use `CHECK` constraints for text length bounds: `CHECK (char_length(name) BETWEEN 1 AND 255)`
+- Use `UNIQUE` constraints on natural keys (e.g., slug, email, key_hash)
+- Place all internal helper functions (permission checks, triggers, computation) in the `private` schema
+- Prefix all table and function references with the schema name, e.g., `public.accounts`, `private.check_org_membership()`
