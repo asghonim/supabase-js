@@ -36,3 +36,26 @@ export { createUsageDb, createAdminUsageDb } from './usage';
 export type { UsageDb, AdminUsageDb } from './usage';
 export { createApiKeysDb } from './api-keys';
 export type { ApiKeysDb } from './api-keys';
+export { createCommentsDb } from './comments';
+export type {
+  CommentsDb,
+  ConversationType,
+  ConversationParticipantRole,
+  ConversationRow,
+  ConversationInsert,
+  ConversationUpdate,
+  ParticipantRow,
+  ParticipantInsert,
+  ConversationTargetRow,
+  ConversationTargetInsert,
+  MessageRow,
+  MessageInsert,
+  MessageUpdate,
+  AttachmentRow,
+  AttachmentInsert,
+  ReactionRow,
+  ReactionInsert,
+  ConversationReadRow,
+  ConversationReadInsert,
+  MessageVersionRow,
+} from './comments';

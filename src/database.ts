@@ -2374,6 +2374,8 @@ export type Database = {
         | "closed"
         | "spam"
       contract_status: "draft" | "active" | "expired" | "terminated"
+      conversation_participant_role: "owner" | "admin" | "member"
+      conversation_type: "direct" | "group" | "channel" | "comments"
       credit_note_reason:
         | "duplicate"
         | "fraudulent"
@@ -2605,6 +2607,8 @@ export const Constants = {
         "spam",
       ],
       contract_status: ["draft", "active", "expired", "terminated"],
+      conversation_participant_role: ["owner", "admin", "member"],
+      conversation_type: ["direct", "group", "channel", "comments"],
       credit_note_reason: [
         "duplicate",
         "fraudulent",
