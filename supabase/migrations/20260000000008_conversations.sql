@@ -69,7 +69,8 @@ GRANT ALL ON TABLE public.conversation_participants TO authenticated, service_ro
 CREATE TABLE public.conversation_targets (
     conversation_id UUID PRIMARY KEY REFERENCES public.conversations(id) ON DELETE CASCADE,
     target_type     TEXT NOT NULL,
-    target_id       TEXT NOT NULL
+    target_id       TEXT NOT NULL,
+    UNIQUE (target_type, target_id)
 );
 GRANT ALL ON TABLE public.conversation_targets TO authenticated, service_role;
 
@@ -86,7 +87,7 @@ CREATE TABLE public.messages (
     sender_id           BIGINT NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
     body                TEXT,
     parent_message_id   UUID REFERENCES public.messages(id) ON DELETE SET NULL,
-    message_number      BIGINT NOT NULL,
+    message_number      BIGINT NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     edited_at           TIMESTAMPTZ,
     deleted_at          TIMESTAMPTZ,
@@ -138,7 +139,7 @@ GRANT ALL ON TABLE public.message_versions TO authenticated, service_role;
 
 -- Atomically assign the next per-conversation message_number before insert
 CREATE OR REPLACE FUNCTION private.assign_message_number()
-RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public, private AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private AS $$
 BEGIN
     INSERT INTO private.conversation_message_seq (conversation_id, last_number)
     VALUES (NEW.conversation_id, 1)
@@ -155,7 +156,7 @@ CREATE TRIGGER assign_message_number
 
 -- Keep conversation summary columns up-to-date
 CREATE OR REPLACE FUNCTION private.on_message_inserted()
-RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public, private AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private AS $$
 BEGIN
     UPDATE public.conversations SET
         message_count       = message_count + 1,

@@ -7,7 +7,7 @@ import { addCommand, copyTemplate } from './add.js'
 const tempDirectories: string[] = []
 
 function createTempDirectory() {
-  const directory = mkdtempSync(path.join(tmpdir(), 'supabase-js-cli-'))
+  const directory = mkdtempSync(path.join(tmpdir(), `supabase-js-cli-${new Date().getTime().toString()}`))
   tempDirectories.push(directory)
   return directory
 }
@@ -22,9 +22,9 @@ afterEach(() => {
 })
 
 describe('add command', () => {
-  it('adds every file for the accounts template', () => {
+  it('adds every file for the supabase template', () => {
     const cwd = createTempDirectory()
-    copyTemplate('accounts', cwd)
+    copyTemplate('supabase', cwd)
     expect(readFileSync(path.join(cwd, 'supabase/migrations/20260000000003_accounts.sql'), 'utf8')).toContain('Account owners can view their own avatars')
   })
 
@@ -39,7 +39,7 @@ describe('add command', () => {
     mkdirSync(dir, { recursive: true })
     writeFileSync(path.join(dir, '20260000000003_accounts.sql'), '// existing file\n')
 
-    expect(() => copyTemplate('accounts', cwd)).toThrow(/^Refusing to overwrite existing file/)
+    expect(() => copyTemplate('supabase', cwd)).toThrow(/^Refusing to overwrite existing file/)
     expect(readFileSync(path.join(cwd, 'supabase/migrations/20260000000003_accounts.sql'), 'utf8')).toBe('// existing file\n')
   })
 
@@ -49,7 +49,7 @@ describe('add command', () => {
     mkdirSync(dir, { recursive: true })
     writeFileSync(path.join(dir, '20260000000003_accounts.sql'), '// existing file\n')
 
-    copyTemplate('accounts', cwd, { overwrite: true })
+    copyTemplate('supabase', cwd, { overwrite: true })
     expect(readFileSync(path.join(cwd, 'supabase/migrations/20260000000003_accounts.sql'), 'utf8')).not.toBe('// existing file\n')
   })
 })
@@ -57,7 +57,7 @@ describe('add command', () => {
 describe('addCommand', () => {
   it('copies files when there are no conflicts', async () => {
     const cwd = createTempDirectory()
-    const files = await addCommand('accounts', cwd, { confirm: async () => { throw new Error('should not prompt') } })
+    const files = await addCommand('supabase', cwd, { confirm: async () => { throw new Error('should not prompt') } })
     expect(files.length).toBeGreaterThan(0)
     expect(readFileSync(path.join(cwd, 'supabase/migrations/20260000000003_accounts.sql'), 'utf8')).toContain('Account owners can view their own avatars')
   })
@@ -68,7 +68,7 @@ describe('addCommand', () => {
     mkdirSync(dir, { recursive: true })
     writeFileSync(path.join(dir, '20260000000003_accounts.sql'), '// existing file\n')
 
-    const files = await addCommand('accounts', cwd, { confirm: async () => true })
+    const files = await addCommand('supabase', cwd, { confirm: async () => true })
     expect(files.length).toBeGreaterThan(0)
     expect(readFileSync(path.join(cwd, 'supabase/migrations/20260000000003_accounts.sql'), 'utf8')).not.toBe('// existing file\n')
   })
@@ -79,7 +79,7 @@ describe('addCommand', () => {
     mkdirSync(dir, { recursive: true })
     writeFileSync(path.join(dir, '20260000000003_accounts.sql'), '// existing file\n')
 
-    const files = await addCommand('accounts', cwd, { confirm: async () => false })
+    const files = await addCommand('supabase', cwd, { confirm: async () => false })
     expect(files).toEqual([])
     expect(readFileSync(path.join(cwd, 'supabase/migrations/20260000000003_accounts.sql'), 'utf8')).toBe('// existing file\n')
   })

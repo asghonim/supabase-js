@@ -353,7 +353,7 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
     setTarget(data: ConversationTargetInsert) {
       return q
         .from('conversation_targets')
-        .upsert(data, { onConflict: 'conversation_id' })
+        .upsert(data, { onConflict: 'target_type,target_id' })
         .select()
         .single()
     },

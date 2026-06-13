@@ -37,7 +37,7 @@ afterEach(() => {
 
 describe('supabase-js CLI', () => {
   it('exits 0 for a known template', () => {
-    const { result } = runCli(['add', 'accounts'])
+    const { result } = runCli(['add', 'supabase'])
     expect(result.status).toBe(0)
   })
 
