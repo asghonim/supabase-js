@@ -25,7 +25,7 @@ ALTER TABLE public.organization_billing_emails ENABLE ROW LEVEL SECURITY;
 CREATE INDEX idx_organization_billing_emails_org ON public.organization_billing_emails(organization_id);
 
 CREATE OR REPLACE FUNCTION private.on_insert_organization_billing_emails() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_organization_billing_emails_inserted BEFORE INSERT ON public.organization_billing_emails FOR EACH ROW EXECUTE FUNCTION private.on_insert_organization_billing_emails();
+CREATE TRIGGER on_insert_organization_billing_emails BEFORE INSERT ON public.organization_billing_emails FOR EACH ROW EXECUTE FUNCTION private.on_insert_organization_billing_emails();
 
 CREATE OR REPLACE FUNCTION private.is_org_billing(p_org_id BIGINT)
 RETURNS BOOLEAN AS $$

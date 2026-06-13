@@ -72,21 +72,20 @@ describe('organizations RLS', () => {
     expect(data).toHaveLength(0)
   })
 
-  it('created_at and updated_at are set by triggers', async () => {
+  it('created_at is set by triggers', async () => {
     const { data, error } = await admin
       .from('organizations')
-      .select('created_at, updated_at')
+      .select('created_at')
       .eq('id', org.id)
       .single()
     expect(error).toBeNull()
     expect(new Date(data!.created_at).getTime()).toBeGreaterThan(0)
-    expect(new Date(data!.updated_at).getTime()).toBeGreaterThan(0)
   })
 
   it('slug must be unique', async () => {
     const { error } = await admin
       .from('organizations')
-      .insert({ owner_account_id: owner.accountId, slug: org.slug })
+      .insert({ slug: org.slug })
     expect(error).not.toBeNull()
   })
 })

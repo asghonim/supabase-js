@@ -3,51 +3,86 @@
     "description": "Adds starter accounts migration files",
     "files": [
       {
-        "source": "supabase/migrations/20260521101353_accounts.sql",
-        "destination": "supabase/migrations/20260521101353_accounts.sql"
-      }
-    ]
-  },
-  "notifications": {
-    "description": "Adds starter notifications migration files",
-    "files": [
-      {
-        "source": "supabase/migrations/20260521101353_accounts.sql",
-        "destination": "supabase/migrations/20260521101353_accounts.sql"
-      },
-      {
-        "source": "supabase/migrations/20260521110000_notifications.sql",
-        "destination": "supabase/migrations/20260521110000_notifications.sql"
-      }
-    ]
-  },
-  "contacts": {
-    "description": "Adds starter contacts migration files",
-    "files": [
-      {
-        "source": "supabase/migrations/20260521101353_accounts.sql",
-        "destination": "supabase/migrations/20260521101353_accounts.sql"
-      },
-      {
-        "source": "supabase/migrations/20260521110000_notifications.sql",
-        "destination": "supabase/migrations/20260521110000_notifications.sql"
-      },
-      {
-        "source": "supabase/migrations/20260521120000_contacts.sql",
-        "destination": "supabase/migrations/20260521120000_contacts.sql"
-      }
-    ]
-  },
-  "organizations": {
-    "description": "Adds starter organizations migration files",
-    "files": [
-      {
-        "source": "supabase/migrations/20260521101353_accounts.sql",
-        "destination": "supabase/migrations/20260521101353_accounts.sql"
+        "source": "supabase/migrations/20260000000001_private.sql",
+        "destination": "supabase/migrations/20260000000001_private.sql"
       },
       {
         "source": "supabase/migrations/20260521120001_organizations.sql",
         "destination": "supabase/migrations/20260521120001_organizations.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000003_accounts.sql",
+        "destination": "supabase/migrations/20260000000003_accounts.sql"
+      },
+      {
+        "source": "supabase/migrations/20260522020000_api_keys.sql",
+        "destination": "supabase/migrations/20260522020000_api_keys.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000005_notifications.sql",
+        "destination": "supabase/migrations/20260000000005_notifications.sql"
+      }
+    ]
+  },
+  "conversations": {
+    "description": "Adds conversations, messages, reactions, and read-receipts migration files",
+    "files": [
+      {
+        "source": "supabase/migrations/20260000000001_private.sql",
+        "destination": "supabase/migrations/20260000000001_private.sql"
+      },
+      {
+        "source": "supabase/migrations/20260521120001_organizations.sql",
+        "destination": "supabase/migrations/20260521120001_organizations.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000003_accounts.sql",
+        "destination": "supabase/migrations/20260000000003_accounts.sql"
+      },
+      {
+        "source": "supabase/migrations/20260522020000_api_keys.sql",
+        "destination": "supabase/migrations/20260522020000_api_keys.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000005_notifications.sql",
+        "destination": "supabase/migrations/20260000000005_notifications.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000008_conversations.sql",
+        "destination": "supabase/migrations/20260000000008_conversations.sql"
+      }
+    ]
+  },
+  "tickets": {
+    "description": "Adds starter contacts migration files",
+    "files": [
+      {
+        "source": "supabase/migrations/20260000000001_private.sql",
+        "destination": "supabase/migrations/20260000000001_private.sql"
+      },
+      {
+        "source": "supabase/migrations/20260521120001_organizations.sql",
+        "destination": "supabase/migrations/20260521120001_organizations.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000003_accounts.sql",
+        "destination": "supabase/migrations/20260000000003_accounts.sql"
+      },
+      {
+        "source": "supabase/migrations/20260522020000_api_keys.sql",
+        "destination": "supabase/migrations/20260522020000_api_keys.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000005_notifications.sql",
+        "destination": "supabase/migrations/20260000000005_notifications.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000008_conversations.sql",
+        "destination": "supabase/migrations/20260000000008_conversations.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000009_tickets.sql",
+        "destination": "supabase/migrations/20260000000009_tickets.sql"
       }
     ]
   },
@@ -55,16 +90,28 @@
     "description": "Adds starter rbac migration files",
     "files": [
       {
-        "source": "supabase/migrations/20260521101353_accounts.sql",
-        "destination": "supabase/migrations/20260521101353_accounts.sql"
+        "source": "supabase/migrations/20260000000001_private.sql",
+        "destination": "supabase/migrations/20260000000001_private.sql"
       },
       {
         "source": "supabase/migrations/20260521120001_organizations.sql",
         "destination": "supabase/migrations/20260521120001_organizations.sql"
       },
       {
-        "source": "supabase/migrations/20260521120002_rbac.sql",
-        "destination": "supabase/migrations/20260521120002_rbac.sql"
+        "source": "supabase/migrations/20260000000003_accounts.sql",
+        "destination": "supabase/migrations/20260000000003_accounts.sql"
+      },
+      {
+        "source": "supabase/migrations/20260522020000_api_keys.sql",
+        "destination": "supabase/migrations/20260522020000_api_keys.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000005_notifications.sql",
+        "destination": "supabase/migrations/20260000000005_notifications.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000006_rbac.sql",
+        "destination": "supabase/migrations/20260000000006_rbac.sql"
       }
     ]
   },
@@ -72,57 +119,32 @@
     "description": "Adds starter subscriptions migration files",
     "files": [
       {
-        "source": "supabase/migrations/20260521101353_accounts.sql",
-        "destination": "supabase/migrations/20260521101353_accounts.sql"
+        "source": "supabase/migrations/20260000000001_private.sql",
+        "destination": "supabase/migrations/20260000000001_private.sql"
       },
       {
         "source": "supabase/migrations/20260521120001_organizations.sql",
         "destination": "supabase/migrations/20260521120001_organizations.sql"
       },
       {
-        "source": "supabase/migrations/20260521120002_rbac.sql",
-        "destination": "supabase/migrations/20260521120002_rbac.sql"
-      },
-      {
-        "source": "supabase/migrations/20260521120005_subscriptions.sql",
-        "destination": "supabase/migrations/20260521120005_subscriptions.sql"
-      }
-    ]
-  },
-  "api": {
-    "description": "Adds starter API migration files",
-    "files": [
-      {
-        "source": "supabase/migrations/20260521101353_accounts.sql",
-        "destination": "supabase/migrations/20260521101353_accounts.sql"
-      },
-      {
-        "source": "supabase/migrations/20260521120001_organizations.sql",
-        "destination": "supabase/migrations/20260521120001_organizations.sql"
-      },
-      {
-        "source": "supabase/migrations/20260521120002_rbac.sql",
-        "destination": "supabase/migrations/20260521120002_rbac.sql"
+        "source": "supabase/migrations/20260000000003_accounts.sql",
+        "destination": "supabase/migrations/20260000000003_accounts.sql"
       },
       {
         "source": "supabase/migrations/20260522020000_api_keys.sql",
         "destination": "supabase/migrations/20260522020000_api_keys.sql"
       },
       {
-
-      }
-    ]
-  },
-  "comments": {
-    "description": "Adds conversations, messages, reactions, and read-receipts migration files",
-    "files": [
-      {
-        "source": "supabase/migrations/20260521101353_accounts.sql",
-        "destination": "supabase/migrations/20260521101353_accounts.sql"
+        "source": "supabase/migrations/20260000000005_notifications.sql",
+        "destination": "supabase/migrations/20260000000005_notifications.sql"
       },
       {
-        "source": "supabase/migrations/20260609000000_comments.sql",
-        "destination": "supabase/migrations/20260609000000_comments.sql"
+        "source": "supabase/migrations/20260000000006_rbac.sql",
+        "destination": "supabase/migrations/20260000000006_rbac.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000007_subscriptions.sql",
+        "destination": "supabase/migrations/20260000000007_subscriptions.sql"
       }
     ]
   }

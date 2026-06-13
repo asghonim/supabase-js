@@ -64,7 +64,7 @@ export async function deleteTestUser(userId: string) {
 export async function createTestOrg(ownerAccountId: number, slug: string): Promise<TestOrg> {
   const { data: org, error } = await admin
     .from('organizations')
-    .insert({ owner_account_id: ownerAccountId, slug })
+    .insert({ slug })
     .select('id, slug')
     .single()
   if (error || !org) throw new Error(`createOrg(${slug}): ${error?.message}`)
