@@ -343,7 +343,8 @@ CREATE POLICY "users can view own read state"
 CREATE POLICY "users can insert own read state"
     ON public.conversation_reads FOR INSERT TO authenticated
     WITH CHECK (
-        EXISTS (
+        private.is_conversation_participant(conversation_id)
+        AND EXISTS (
             SELECT 1 FROM public.accounts a
             WHERE a.id = account_id AND a.user_id = auth.uid()
         )
@@ -352,7 +353,8 @@ CREATE POLICY "users can insert own read state"
 CREATE POLICY "users can update own read state"
     ON public.conversation_reads FOR UPDATE TO authenticated
     USING (
-        EXISTS (
+        private.is_conversation_participant(conversation_id)
+        AND EXISTS (
             SELECT 1 FROM public.accounts a
             WHERE a.id = account_id AND a.user_id = auth.uid()
         )
