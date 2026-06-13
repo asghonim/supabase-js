@@ -93,7 +93,9 @@ CREATE TABLE public.messages (
     deleted_at          TIMESTAMPTZ,
     UNIQUE (conversation_id, message_number)
 );
-GRANT ALL ON TABLE public.messages TO authenticated, service_role;
+GRANT ALL ON TABLE public.messages TO service_role;
+GRANT SELECT, INSERT, DELETE ON TABLE public.messages TO authenticated;
+GRANT UPDATE (body, edited_at, deleted_at) ON TABLE public.messages TO authenticated;
 
 CREATE TABLE public.message_attachments (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -170,6 +172,26 @@ $$;
 CREATE TRIGGER on_message_inserted
     AFTER INSERT ON public.messages
     FOR EACH ROW EXECUTE FUNCTION private.on_message_inserted();
+
+-- Prevent mutation of routing/sequencing fields after insert
+CREATE OR REPLACE FUNCTION private.enforce_message_immutable_fields()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, private AS $$
+BEGIN
+    IF NEW.conversation_id   IS DISTINCT FROM OLD.conversation_id   OR
+       NEW.sender_id         IS DISTINCT FROM OLD.sender_id         OR
+       NEW.message_number    IS DISTINCT FROM OLD.message_number    OR
+       NEW.created_at        IS DISTINCT FROM OLD.created_at        OR
+       NEW.parent_message_id IS DISTINCT FROM OLD.parent_message_id
+    THEN
+        RAISE EXCEPTION 'routing and sequencing fields on messages are immutable after insert';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER enforce_message_immutable_fields
+    BEFORE UPDATE ON public.messages
+    FOR EACH ROW EXECUTE FUNCTION private.enforce_message_immutable_fields();
 
 
 -- ================================================================
@@ -267,6 +289,13 @@ CREATE POLICY "sender can edit or soft-delete own messages"
     ON public.messages FOR UPDATE TO authenticated
     USING (
         EXISTS (
+            SELECT 1 FROM public.accounts a
+            WHERE a.id = sender_id AND a.user_id = auth.uid()
+        )
+    )
+    WITH CHECK (
+        private.is_conversation_participant(conversation_id)
+        AND EXISTS (
             SELECT 1 FROM public.accounts a
             WHERE a.id = sender_id AND a.user_id = auth.uid()
         )
