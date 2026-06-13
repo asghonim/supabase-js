@@ -227,17 +227,20 @@ CREATE POLICY "Allow org owner to view organization names"
     TO authenticated
     USING (
         EXISTS (
-            SELECT 1 FROM public.organizations o
-            JOIN public.accounts a ON a.id = o.owner_account_id
-            WHERE o.id = organization_id
-              AND a.user_id = auth.uid()
+            SELECT 1
+            FROM public.organization_members om
+            JOIN public.accounts             a ON a.id  = om.account_id
+            JOIN public.organization_roles   r ON r.id  = om.organization_role_id
+            WHERE om.organization_id = public.organization_names.organization_id
+              AND a.user_id          = auth.uid()
+              AND r.key              = 'owner'
         )
     );
 
 CREATE POLICY "Allow owner to insert organization name"
     ON public.organization_names FOR INSERT
     TO authenticated
-    WITH CHECK (exists(SELECT 1 FROM public.organizations o WHERE o.id = organization_id AND private.is_org_admin(o.id)));
+    WITH CHECK (exists(SELECT 1 FROM public.organizations o WHERE o.id = public.organization_names.organization_id AND private.is_org_admin(o.id)));
 
 CREATE OR REPLACE FUNCTION public.get_my_platform_permissions()
 RETURNS TEXT[] AS $$

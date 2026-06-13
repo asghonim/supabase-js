@@ -7,17 +7,15 @@ export type {
   NotificationChannel, NotificationFrequency,
   PreferenceInsert, PreferenceUpdate, RecipientInsert
 } from './notifications';
-export { createContactDb } from './contacts';
+export { createTicketDb } from './tickets';
 export type {
-  ContactDb,
-  ContactStatus,
-  ContactPriority,
-  ContactSenderType,
-  ContactSubmissionRow,
-  ContactSubmissionInsert,
-  ContactMessageRow,
-  ContactMessageInsert,
-} from './contacts';
+  TicketDb,
+  TicketStatus,
+  TicketPriority,
+  TicketRow,
+  TicketInsert,
+  TicketUpdate,
+} from './tickets';
 export { createOrganizationsDb } from './organizations';
 export type { OrganizationsDb } from './organizations';
 export { createRbacDb } from './rbac';
@@ -36,3 +34,26 @@ export { createUsageDb, createAdminUsageDb } from './usage';
 export type { UsageDb, AdminUsageDb } from './usage';
 export { createApiKeysDb } from './api-keys';
 export type { ApiKeysDb } from './api-keys';
+export { createCommentsDb } from './conversations';
+export type {
+  CommentsDb,
+  ConversationType,
+  ConversationParticipantRole,
+  ConversationRow,
+  ConversationInsert,
+  ConversationUpdate,
+  ParticipantRow,
+  ParticipantInsert,
+  ConversationTargetRow,
+  ConversationTargetInsert,
+  MessageRow,
+  MessageInsert,
+  MessageUpdate,
+  AttachmentRow,
+  AttachmentInsert,
+  ReactionRow,
+  ReactionInsert,
+  ConversationReadRow,
+  ConversationReadInsert,
+  MessageVersionRow,
+} from './conversations';

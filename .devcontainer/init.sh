@@ -2,3 +2,4 @@
 [ -f "$BROWSER" ] && ! command -v xdg-open > /dev/null && sudo ln -s "$BROWSER" /usr/local/bin/xdg-open
 
 npm install
+curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install | bash

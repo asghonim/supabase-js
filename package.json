@@ -28,7 +28,8 @@
     "test": "vitest run --coverage",
     "lint": "tsc --noEmit",
     "eslint": "eslint . --config eslint.config.mts --ext .js,.jsx,.ts,.tsx",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "gen:db": "supabase gen types --linked typescript > src/database.ts"
   },
   "keywords": [
     "supabase",
