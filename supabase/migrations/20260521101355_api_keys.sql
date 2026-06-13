@@ -2,7 +2,7 @@
 -- API KEYS
 --
 -- API keys allow programmatic access to the API, scoped to an
--- organization. Any org member may create, update, and revoke keys.
+-- organization. Any org member may create, and revoke keys.
 --
 -- Security model:
 --   * Only the SHA-256 hash of the key is stored — plaintext is

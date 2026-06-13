@@ -12,15 +12,15 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { admin, createTestUser, deleteTestUser, type TestUser } from './helpers'
-import { createCommentsDb } from './comments'
+import { admin, createTestUser, createTestOrg, deleteTestUser, uniqueSlug, type TestUser, type TestOrg } from './helpers'
+import { createCommentsDb } from './conversations'
 
 // ── seed helpers ──────────────────────────────────────────────────────────────
 
-async function seedConversation(tenantAccountId?: number, title?: string) {
+async function seedConversation(tenantOrgId?: number, title?: string) {
   const { data, error } = await admin
     .from('conversations')
-    .insert({ tenant_id: tenantAccountId ?? null, type: 'group', title: title ?? null })
+    .insert({ tenant_id: tenantOrgId ?? null, type: 'group', title: title ?? null })
     .select()
     .single()
   if (error || !data) throw new Error(`seedConversation: ${error?.message}`)
@@ -57,10 +57,12 @@ async function seedMessage(
 describe('conversations RLS', () => {
   let userA: TestUser
   let userB: TestUser
+  let org: TestOrg
 
   beforeAll(async () => {
     userA = await createTestUser('conv-rls-a')
     userB = await createTestUser('conv-rls-b')
+    org = await createTestOrg(userA.accountId, uniqueSlug('conv-rls-org'))
   })
 
   afterAll(async () => {
@@ -69,7 +71,7 @@ describe('conversations RLS', () => {
   })
 
   it('participant can view their conversation', async () => {
-    const conv = await seedConversation(userA.accountId)
+    const conv = await seedConversation(org.id)
     await addParticipant(conv.id, userA.accountId)
 
     const { data, error } = await userA.client
@@ -81,7 +83,7 @@ describe('conversations RLS', () => {
   })
 
   it('non-participant cannot view the conversation', async () => {
-    const conv = await seedConversation(userA.accountId)
+    const conv = await seedConversation(org.id)
     await addParticipant(conv.id, userA.accountId)
 
     const { data, error } = await userB.client
@@ -394,11 +396,13 @@ describe('conversation_reads RLS', () => {
 describe('createCommentsDb', () => {
   let userA: TestUser
   let userB: TestUser
+  let org: TestOrg
   const adminDb = createCommentsDb(admin)
 
   beforeAll(async () => {
     userA = await createTestUser('cdb-a')
     userB = await createTestUser('cdb-b')
+    org = await createTestOrg(userA.accountId, uniqueSlug('cdb-org'))
   })
 
   afterAll(async () => {
@@ -409,7 +413,7 @@ describe('createCommentsDb', () => {
   describe('createConversation / listConversations', () => {
     it('creates a conversation and lists it for a participant', async () => {
       const conv = await adminDb.createConversation({
-        tenant_id: userA.accountId,
+        tenant_id: org.id,
         type: 'group',
         title: 'Test chat',
         created_by: userA.accountId,
@@ -418,7 +422,7 @@ describe('createCommentsDb', () => {
       await addParticipant(conv.data!.id, userA.accountId)
 
       const userADb = createCommentsDb(userA.client)
-      const list = await userADb.listConversations({ tenantId: userA.accountId })
+      const list = await userADb.listConversations({ tenantId: org.id })
       expect(list.error).toBeNull()
       expect(list.data!.map(c => c.id)).toContain(conv.data!.id)
     })

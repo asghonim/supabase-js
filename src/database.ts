@@ -119,19 +119,16 @@ export type Database = {
         Row: {
           created_at: string
           id: number
-          updated_at: string
           user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: never
-          updated_at?: string
           user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: never
-          updated_at?: string
           user_id?: string | null
         }
         Relationships: []
@@ -375,194 +372,161 @@ export type Database = {
         }
         Relationships: []
       }
-      contact_attachments: {
+      conversation_participants: {
         Row: {
-          created_at: string
-          file_name: string
-          id: string
-          message_id: string | null
-          mime_type: string | null
-          size_bytes: number | null
-          storage_key: string
-          storage_provider: string
-          submission_id: string | null
+          account_id: number
+          conversation_id: string
+          joined_at: string
+          role: Database["public"]["Enums"]["conversation_participant_role"]
         }
         Insert: {
-          created_at?: string
-          file_name: string
-          id?: string
-          message_id?: string | null
-          mime_type?: string | null
-          size_bytes?: number | null
-          storage_key: string
-          storage_provider?: string
-          submission_id?: string | null
+          account_id: number
+          conversation_id: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["conversation_participant_role"]
         }
         Update: {
-          created_at?: string
-          file_name?: string
-          id?: string
-          message_id?: string | null
-          mime_type?: string | null
-          size_bytes?: number | null
-          storage_key?: string
-          storage_provider?: string
-          submission_id?: string | null
+          account_id?: number
+          conversation_id?: string
+          joined_at?: string
+          role?: Database["public"]["Enums"]["conversation_participant_role"]
         }
         Relationships: [
           {
-            foreignKeyName: "contact_attachments_message_id_fkey"
-            columns: ["message_id"]
+            foreignKeyName: "conversation_participants_account_id_fkey"
+            columns: ["account_id"]
             isOneToOne: false
-            referencedRelation: "contact_messages"
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "contact_attachments_submission_id_fkey"
-            columns: ["submission_id"]
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "contact_submissions"
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]
       }
-      contact_messages: {
+      conversation_reads: {
         Row: {
-          body: string
-          created_at: string
-          id: string
-          is_internal: boolean
-          metadata: Json
-          sender_account_id: number | null
-          sender_type: Database["public"]["Enums"]["contact_sender_type"]
-          submission_id: string
+          account_id: number
+          conversation_id: string
+          last_read_at: string
+          last_read_message_id: string | null
+          last_read_message_number: number | null
         }
         Insert: {
-          body: string
-          created_at?: string
-          id?: string
-          is_internal?: boolean
-          metadata?: Json
-          sender_account_id?: number | null
-          sender_type?: Database["public"]["Enums"]["contact_sender_type"]
-          submission_id: string
+          account_id: number
+          conversation_id: string
+          last_read_at?: string
+          last_read_message_id?: string | null
+          last_read_message_number?: number | null
         }
         Update: {
-          body?: string
-          created_at?: string
-          id?: string
-          is_internal?: boolean
-          metadata?: Json
-          sender_account_id?: number | null
-          sender_type?: Database["public"]["Enums"]["contact_sender_type"]
-          submission_id?: string
+          account_id?: number
+          conversation_id?: string
+          last_read_at?: string
+          last_read_message_id?: string | null
+          last_read_message_number?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "contact_messages_sender_account_id_fkey"
-            columns: ["sender_account_id"]
+            foreignKeyName: "conversation_reads_account_id_fkey"
+            columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "contact_messages_submission_id_fkey"
-            columns: ["submission_id"]
+            foreignKeyName: "conversation_reads_conversation_id_fkey"
+            columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "contact_submissions"
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_reads_last_read_message_id_fkey"
+            columns: ["last_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
         ]
       }
-      contact_submissions: {
+      conversation_targets: {
         Row: {
-          assigned_to_account_id: number | null
-          authenticated_account_id: number | null
-          category: string | null
-          company_name: string | null
-          created_at: string
-          due_at: string | null
-          email: string | null
-          first_response_at: string | null
-          full_name: string | null
-          id: string
-          ip_address: unknown
-          message: string
-          metadata: Json
-          phone: string | null
-          priority: Database["public"]["Enums"]["contact_priority"]
-          referer: string | null
-          resolved_at: string | null
-          source: string | null
-          spam_score: number | null
-          status: Database["public"]["Enums"]["contact_status"]
-          subject: string | null
-          updated_at: string
-          user_agent: string | null
+          conversation_id: string
+          target_id: string
+          target_type: string
         }
         Insert: {
-          assigned_to_account_id?: number | null
-          authenticated_account_id?: number | null
-          category?: string | null
-          company_name?: string | null
-          created_at?: string
-          due_at?: string | null
-          email?: string | null
-          first_response_at?: string | null
-          full_name?: string | null
-          id?: string
-          ip_address?: unknown
-          message: string
-          metadata?: Json
-          phone?: string | null
-          priority?: Database["public"]["Enums"]["contact_priority"]
-          referer?: string | null
-          resolved_at?: string | null
-          source?: string | null
-          spam_score?: number | null
-          status?: Database["public"]["Enums"]["contact_status"]
-          subject?: string | null
-          updated_at?: string
-          user_agent?: string | null
+          conversation_id: string
+          target_id: string
+          target_type: string
         }
         Update: {
-          assigned_to_account_id?: number | null
-          authenticated_account_id?: number | null
-          category?: string | null
-          company_name?: string | null
-          created_at?: string
-          due_at?: string | null
-          email?: string | null
-          first_response_at?: string | null
-          full_name?: string | null
-          id?: string
-          ip_address?: unknown
-          message?: string
-          metadata?: Json
-          phone?: string | null
-          priority?: Database["public"]["Enums"]["contact_priority"]
-          referer?: string | null
-          resolved_at?: string | null
-          source?: string | null
-          spam_score?: number | null
-          status?: Database["public"]["Enums"]["contact_status"]
-          subject?: string | null
-          updated_at?: string
-          user_agent?: string | null
+          conversation_id?: string
+          target_id?: string
+          target_type?: string
         }
         Relationships: [
           {
-            foreignKeyName: "contact_submissions_assigned_to_account_id_fkey"
-            columns: ["assigned_to_account_id"]
+            foreignKeyName: "conversation_targets_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          created_by: number | null
+          id: string
+          last_message_at: string | null
+          last_message_number: number | null
+          message_count: number
+          tenant_id: number | null
+          title: string | null
+          type: Database["public"]["Enums"]["conversation_type"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: number | null
+          id?: string
+          last_message_at?: string | null
+          last_message_number?: number | null
+          message_count?: number
+          tenant_id?: number | null
+          title?: string | null
+          type?: Database["public"]["Enums"]["conversation_type"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: number | null
+          id?: string
+          last_message_at?: string | null
+          last_message_number?: number | null
+          message_count?: number
+          tenant_id?: number | null
+          title?: string | null
+          type?: Database["public"]["Enums"]["conversation_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "contact_submissions_authenticated_account_id_fkey"
-            columns: ["authenticated_account_id"]
+            foreignKeyName: "conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
             isOneToOne: false
-            referencedRelation: "accounts"
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -868,6 +832,164 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_attachments: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          file_name: string
+          id: string
+          message_id: string
+          size: number | null
+          storage_key: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          file_name: string
+          id?: string
+          message_id: string
+          size?: number | null
+          storage_key: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          file_name?: string
+          id?: string
+          message_id?: string
+          size?: number | null
+          storage_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions: {
+        Row: {
+          account_id: number
+          message_id: string
+          reaction: string
+        }
+        Insert: {
+          account_id: number
+          message_id: string
+          reaction: string
+        }
+        Update: {
+          account_id?: number
+          message_id?: string
+          reaction?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_versions: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          message_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          message_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_versions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string | null
+          conversation_id: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          message_number: number
+          parent_message_id: string | null
+          sender_id: number
+        }
+        Insert: {
+          body?: string | null
+          conversation_id: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          message_number: number
+          parent_message_id?: string | null
+          sender_id: number
+        }
+        Update: {
+          body?: string | null
+          conversation_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          message_number?: number
+          parent_message_id?: string | null
+          sender_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_parent_message_id_fkey"
+            columns: ["parent_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -1389,66 +1511,19 @@ export type Database = {
           created_at: string
           id: number
           metadata: Json
-          owner_account_id: number
           slug: string
-          updated_at: string
         }
         Insert: {
           created_at?: string
           id?: never
           metadata?: Json
-          owner_account_id: number
           slug: string
-          updated_at?: string
         }
         Update: {
           created_at?: string
           id?: never
           metadata?: Json
-          owner_account_id?: number
           slug?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "organizations_owner_account_id_fkey"
-            columns: ["owner_account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      outbox_events: {
-        Row: {
-          aggregate_id: string
-          aggregate_type: string
-          created_at: string
-          error: string | null
-          event_type: string
-          id: string
-          payload: Json
-          processed_at: string | null
-        }
-        Insert: {
-          aggregate_id: string
-          aggregate_type: string
-          created_at?: string
-          error?: string | null
-          event_type: string
-          id?: string
-          payload: Json
-          processed_at?: string | null
-        }
-        Update: {
-          aggregate_id?: string
-          aggregate_type?: string
-          created_at?: string
-          error?: string | null
-          event_type?: string
-          id?: string
-          payload?: Json
-          processed_at?: string | null
         }
         Relationships: []
       }
@@ -2188,6 +2263,96 @@ export type Database = {
           },
         ]
       }
+      tickets: {
+        Row: {
+          assigned_to_account_id: number | null
+          authenticated_account_id: number | null
+          category: string | null
+          company_name: string | null
+          created_at: string
+          due_at: string | null
+          email: string | null
+          first_response_at: string | null
+          full_name: string | null
+          id: string
+          ip_address: unknown
+          message: string
+          metadata: Json
+          phone: string | null
+          priority: Database["public"]["Enums"]["ticket_priority"]
+          referer: string | null
+          resolved_at: string | null
+          source: string | null
+          spam_score: number | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          subject: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          assigned_to_account_id?: number | null
+          authenticated_account_id?: number | null
+          category?: string | null
+          company_name?: string | null
+          created_at?: string
+          due_at?: string | null
+          email?: string | null
+          first_response_at?: string | null
+          full_name?: string | null
+          id?: string
+          ip_address?: unknown
+          message: string
+          metadata?: Json
+          phone?: string | null
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          referer?: string | null
+          resolved_at?: string | null
+          source?: string | null
+          spam_score?: number | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subject?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          assigned_to_account_id?: number | null
+          authenticated_account_id?: number | null
+          category?: string | null
+          company_name?: string | null
+          created_at?: string
+          due_at?: string | null
+          email?: string | null
+          first_response_at?: string | null
+          full_name?: string | null
+          id?: string
+          ip_address?: unknown
+          message?: string
+          metadata?: Json
+          phone?: string | null
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          referer?: string | null
+          resolved_at?: string | null
+          source?: string | null
+          spam_score?: number | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          subject?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_assigned_to_account_id_fkey"
+            columns: ["assigned_to_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_authenticated_account_id_fkey"
+            columns: ["authenticated_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_records: {
         Row: {
           created_at: string
@@ -2363,16 +2528,6 @@ export type Database = {
         | "remove_seats"
         | "add_addon"
         | "remove_addon"
-      contact_priority: "low" | "normal" | "high" | "urgent"
-      contact_sender_type: "customer" | "agent" | "system"
-      contact_status:
-        | "new"
-        | "reviewed"
-        | "in_progress"
-        | "waiting_customer"
-        | "resolved"
-        | "closed"
-        | "spam"
       contract_status: "draft" | "active" | "expired" | "terminated"
       conversation_participant_role: "owner" | "admin" | "member"
       conversation_type: "direct" | "group" | "channel" | "comments"
@@ -2435,6 +2590,15 @@ export type Database = {
         | "paused"
         | "cancelled"
         | "expired"
+      ticket_priority: "low" | "normal" | "high" | "urgent"
+      ticket_status:
+        | "new"
+        | "reviewed"
+        | "in_progress"
+        | "waiting_customer"
+        | "resolved"
+        | "closed"
+        | "spam"
       webhook_event_status: "pending" | "processed" | "failed" | "ignored"
     }
     CompositeTypes: {
@@ -2595,17 +2759,6 @@ export const Constants = {
         "add_addon",
         "remove_addon",
       ],
-      contact_priority: ["low", "normal", "high", "urgent"],
-      contact_sender_type: ["customer", "agent", "system"],
-      contact_status: [
-        "new",
-        "reviewed",
-        "in_progress",
-        "waiting_customer",
-        "resolved",
-        "closed",
-        "spam",
-      ],
       contract_status: ["draft", "active", "expired", "terminated"],
       conversation_participant_role: ["owner", "admin", "member"],
       conversation_type: ["direct", "group", "channel", "comments"],
@@ -2675,6 +2828,16 @@ export const Constants = {
         "paused",
         "cancelled",
         "expired",
+      ],
+      ticket_priority: ["low", "normal", "high", "urgent"],
+      ticket_status: [
+        "new",
+        "reviewed",
+        "in_progress",
+        "waiting_customer",
+        "resolved",
+        "closed",
+        "spam",
       ],
       webhook_event_status: ["pending", "processed", "failed", "ignored"],
     },

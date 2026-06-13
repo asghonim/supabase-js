@@ -46,7 +46,7 @@ CREATE TYPE public.conversation_participant_role AS ENUM (
 
 CREATE TABLE public.conversations (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id               BIGINT REFERENCES public.accounts(id) ON DELETE CASCADE,
+    tenant_id               BIGINT REFERENCES public.organizations(id) ON DELETE CASCADE,
     type                    public.conversation_type NOT NULL DEFAULT 'group',
     title                   TEXT,
     message_count           BIGINT NOT NULL DEFAULT 0,
