@@ -322,3 +322,141 @@ describe('idempotency_keys', () => {
     expect(data).toBeNull()
   })
 })
+
+// ── invoices — additional methods ─────────────────────────────────────────────
+
+describe('invoices — getInvoiceByNumber / getInvoiceByProviderId / limit', () => {
+  let member: TestUser
+  let org: TestOrg
+  let invoiceId: number
+  const invoiceNumber = `INV-EXTRA-${Date.now()}`
+  const providerInvoiceId = `stripe_inv_${Date.now()}`
+
+  beforeAll(async () => {
+    member = await createTestUser('billing-extra-member')
+    org = await createTestOrg(member.accountId, uniqueSlug('billing-extra'))
+    await addOrgMember(org.id, member.accountId, 'billing')
+
+    const { data: inv } = await admin
+      .from('invoices')
+      .insert({
+        organization_id: org.id,
+        number: invoiceNumber,
+        status: 'paid',
+        billing_provider_invoice_id: providerInvoiceId,
+      })
+      .select('id')
+      .single()
+    invoiceId = inv!.id
+  })
+
+  afterAll(async () => {
+    if (invoiceId) await admin.from('invoices').delete().eq('id', invoiceId)
+    await deleteTestUser(member.id)
+  })
+
+  it('listInvoices respects the limit option', async () => {
+    const db = createBillingDb(member.client)
+    const { data, error } = await db.listInvoices(org.id, { limit: 1 })
+    expect(error).toBeNull()
+    expect(data!.length).toBeLessThanOrEqual(1)
+  })
+
+  it('getInvoiceByNumber returns the invoice with line items', async () => {
+    const db = createBillingDb(member.client)
+    const { data, error } = await db.getInvoiceByNumber(invoiceNumber)
+    expect(error).toBeNull()
+    expect(data!.number).toBe(invoiceNumber)
+    expect(data!).toHaveProperty('invoice_line_items')
+  })
+
+  it('getInvoiceByProviderId returns the invoice by billing_provider_invoice_id', async () => {
+    const db = createBillingDb(member.client)
+    const { data, error } = await db.getInvoiceByProviderId(providerInvoiceId)
+    expect(error).toBeNull()
+    expect(data!.billing_provider_invoice_id).toBe(providerInvoiceId)
+  })
+})
+
+// ── credit_notes — getCreditNote (stub — DB sequence not accessible) ──────────
+
+describe('credit_notes — getCreditNote', () => {
+  it('getCreditNote builds the correct query chain', async () => {
+    const fakeRow = { id: 7, organization_id: 1, reason: 'duplicate' }
+    const chain: Record<string, unknown> = {}
+    chain['select'] = () => chain
+    chain['eq'] = () => chain
+    chain['single'] = () => Promise.resolve({ data: fakeRow, error: null })
+    const stubClient = { from: () => chain } as unknown as Parameters<typeof createBillingDb>[0]
+
+    const db = createBillingDb(stubClient)
+    const { data, error } = await db.getCreditNote(7)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(7)
+  })
+})
+
+// ── payments — getPayment / getPaymentByProviderId / limit ────────────────────
+
+describe('payments — getPayment / getPaymentByProviderId / limit', () => {
+  let member: TestUser
+  let org: TestOrg
+  let invoiceId: number
+  let paymentId: number
+  const providerPaymentId = `stripe_pay_${Date.now()}`
+
+  beforeAll(async () => {
+    member = await createTestUser('billing-pay-get-member')
+    org = await createTestOrg(member.accountId, uniqueSlug('billing-pay-get'))
+    await addOrgMember(org.id, member.accountId, 'billing')
+
+    const { data: inv } = await admin
+      .from('invoices')
+      .insert({ organization_id: org.id, number: `INV-PAY-${Date.now()}`, status: 'paid' })
+      .select('id')
+      .single()
+    invoiceId = inv!.id
+
+    const { data: pay } = await admin
+      .from('payments')
+      .insert({
+        organization_id: org.id,
+        invoice_id: invoiceId,
+        amount: 999,
+        billing_provider: 'stripe',
+        status: 'succeeded',
+        billing_provider_payment_id: providerPaymentId,
+      })
+      .select('id')
+      .single()
+    paymentId = pay!.id
+  })
+
+  afterAll(async () => {
+    if (paymentId) await admin.from('payments').delete().eq('id', paymentId)
+    if (invoiceId) await admin.from('invoices').delete().eq('id', invoiceId)
+    await deleteTestUser(member.id)
+  })
+
+  it('listPayments respects the limit option', async () => {
+    const db = createBillingDb(member.client)
+    const { data, error } = await db.listPayments(org.id, { limit: 1 })
+    expect(error).toBeNull()
+    expect(data!.length).toBeLessThanOrEqual(1)
+  })
+
+  it('getPayment returns the payment with invoices', async () => {
+    const db = createBillingDb(member.client)
+    const { data, error } = await db.getPayment(paymentId)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(paymentId)
+    expect(data!).toHaveProperty('invoices')
+  })
+
+  it('getPaymentByProviderId returns the payment by billing_provider_payment_id', async () => {
+    const db = createBillingDb(member.client)
+    const { data, error } = await db.getPaymentByProviderId(providerPaymentId)
+    expect(error).toBeNull()
+    expect(data!.billing_provider_payment_id).toBe(providerPaymentId)
+  })
+})

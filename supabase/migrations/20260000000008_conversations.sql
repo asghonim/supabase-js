@@ -45,48 +45,89 @@ CREATE TYPE public.conversation_participant_role AS ENUM (
 -- ================================================================
 
 CREATE TABLE public.conversations (
-    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id                      BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                     UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     tenant_id               BIGINT REFERENCES public.organizations(id) ON DELETE CASCADE,
     type                    public.conversation_type NOT NULL DEFAULT 'group',
-    title                   TEXT,
-    message_count           BIGINT NOT NULL DEFAULT 0,
+    title                   TEXT        CHECK (char_length(title) <= 500),
+    message_count           BIGINT      NOT NULL DEFAULT 0,
     last_message_at         TIMESTAMPTZ,
     last_message_number     BIGINT,
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    created_by              BIGINT REFERENCES public.accounts(id) ON DELETE SET NULL
+    created_by              BIGINT REFERENCES public.accounts(id) ON DELETE SET NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 GRANT ALL ON TABLE public.conversations TO authenticated, service_role;
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_conversations_tenant     ON public.conversations(tenant_id);
+CREATE INDEX idx_conversations_created_by ON public.conversations(created_by);
+CREATE INDEX idx_conversations_type       ON public.conversations(type);
+
+CREATE OR REPLACE FUNCTION private.on_insert_conversations()
+RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_conversations
+    BEFORE INSERT ON public.conversations
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_conversations();
 
 CREATE TABLE public.conversation_participants (
-    conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID   NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    conversation_id BIGINT NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
     account_id      BIGINT NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
     role            public.conversation_participant_role NOT NULL DEFAULT 'member',
     joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (conversation_id, account_id)
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (conversation_id, account_id)
 );
 GRANT ALL ON TABLE public.conversation_participants TO authenticated, service_role;
+ALTER TABLE public.conversation_participants ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_conv_participants_conversation ON public.conversation_participants(conversation_id);
+CREATE INDEX idx_conv_participants_account      ON public.conversation_participants(account_id);
+
+CREATE OR REPLACE FUNCTION private.on_insert_conversation_participants()
+RETURNS TRIGGER AS $$ BEGIN NEW.joined_at = NOW(); NEW.created_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_conversation_participants
+    BEFORE INSERT ON public.conversation_participants
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_conversation_participants();
 
 CREATE TABLE public.conversation_targets (
-    conversation_id UUID PRIMARY KEY REFERENCES public.conversations(id) ON DELETE CASCADE,
-    target_type     TEXT NOT NULL,
-    target_id       TEXT NOT NULL,
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID   NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    conversation_id BIGINT NOT NULL UNIQUE REFERENCES public.conversations(id) ON DELETE CASCADE,
+    target_type     TEXT   NOT NULL CHECK (char_length(target_type) BETWEEN 1 AND 100),
+    target_id       TEXT   NOT NULL CHECK (char_length(target_id) BETWEEN 1 AND 255),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (target_type, target_id)
 );
 GRANT ALL ON TABLE public.conversation_targets TO authenticated, service_role;
+ALTER TABLE public.conversation_targets ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_conv_targets_type_id ON public.conversation_targets(target_type, target_id);
+
+CREATE OR REPLACE FUNCTION private.on_insert_conversation_targets()
+RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_conversation_targets
+    BEFORE INSERT ON public.conversation_targets
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_conversation_targets();
 
 -- Private counter table for per-conversation message sequence numbers
 CREATE TABLE private.conversation_message_seq (
-    conversation_id UUID PRIMARY KEY,
+    conversation_id BIGINT PRIMARY KEY,
     last_number     BIGINT NOT NULL DEFAULT 0
 );
 GRANT ALL ON TABLE private.conversation_message_seq TO service_role;
 
 CREATE TABLE public.messages (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    conversation_id     UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+    id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                 UUID   NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    conversation_id     BIGINT NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
     sender_id           BIGINT NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
-    body                TEXT,
-    parent_message_id   UUID REFERENCES public.messages(id) ON DELETE SET NULL,
+    body                TEXT   CHECK (char_length(body) <= 65535),
+    parent_message_id   BIGINT REFERENCES public.messages(id) ON DELETE SET NULL,
     message_number      BIGINT NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     edited_at           TIMESTAMPTZ,
@@ -96,53 +137,111 @@ CREATE TABLE public.messages (
 GRANT ALL ON TABLE public.messages TO service_role;
 GRANT SELECT, INSERT, DELETE ON TABLE public.messages TO authenticated;
 GRANT UPDATE (body, edited_at, deleted_at) ON TABLE public.messages TO authenticated;
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_messages_conv_number  ON public.messages(conversation_id, message_number);
+CREATE INDEX idx_messages_conv_created ON public.messages(conversation_id, created_at);
+CREATE INDEX idx_messages_sender       ON public.messages(sender_id);
+CREATE INDEX idx_messages_parent       ON public.messages(parent_message_id)
+    WHERE parent_message_id IS NOT NULL;
 
 CREATE TABLE public.message_attachments (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    message_id   UUID NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
-    storage_key  TEXT NOT NULL,
-    file_name    TEXT NOT NULL,
-    content_type TEXT,
+    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid          UUID   NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    message_id   BIGINT NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
+    storage_key  TEXT   NOT NULL CHECK (char_length(storage_key) BETWEEN 1 AND 1000),
+    file_name    TEXT   NOT NULL CHECK (char_length(file_name) BETWEEN 1 AND 255),
+    content_type TEXT   CHECK (char_length(content_type) <= 100),
     size         BIGINT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 GRANT ALL ON TABLE public.message_attachments TO authenticated, service_role;
+ALTER TABLE public.message_attachments ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_message_attachments_message ON public.message_attachments(message_id);
+
+CREATE OR REPLACE FUNCTION private.on_insert_message_attachments()
+RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_message_attachments
+    BEFORE INSERT ON public.message_attachments
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_message_attachments();
 
 CREATE TABLE public.message_reactions (
-    message_id UUID NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid        UUID   NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    message_id BIGINT NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
     account_id BIGINT NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
-    reaction   TEXT NOT NULL,
-    PRIMARY KEY (message_id, account_id, reaction)
+    reaction   TEXT   NOT NULL CHECK (char_length(reaction) BETWEEN 1 AND 100),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (message_id, account_id, reaction)
 );
 GRANT ALL ON TABLE public.message_reactions TO authenticated, service_role;
+ALTER TABLE public.message_reactions ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_message_reactions_msg ON public.message_reactions(message_id);
+
+CREATE OR REPLACE FUNCTION private.on_insert_message_reactions()
+RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_message_reactions
+    BEFORE INSERT ON public.message_reactions
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_message_reactions();
 
 CREATE TABLE public.conversation_reads (
-    conversation_id          UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+    id                       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                      UUID   NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    conversation_id          BIGINT NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
     account_id               BIGINT NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
-    last_read_message_id     UUID REFERENCES public.messages(id) ON DELETE SET NULL,
+    last_read_message_id     BIGINT REFERENCES public.messages(id) ON DELETE SET NULL,
     last_read_message_number BIGINT,
     last_read_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (conversation_id, account_id)
+    created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (conversation_id, account_id)
 );
 GRANT ALL ON TABLE public.conversation_reads TO authenticated, service_role;
+ALTER TABLE public.conversation_reads ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_conv_reads_account        ON public.conversation_reads(account_id);
+CREATE INDEX idx_conv_reads_conversation   ON public.conversation_reads(conversation_id);
+
+CREATE OR REPLACE FUNCTION private.on_insert_conversation_reads()
+RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_conversation_reads
+    BEFORE INSERT ON public.conversation_reads
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_conversation_reads();
 
 CREATE TABLE public.message_versions (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    message_id UUID NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
-    body       TEXT NOT NULL,
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid        UUID   NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    message_id BIGINT NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
+    body       TEXT   NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 GRANT ALL ON TABLE public.message_versions TO authenticated, service_role;
+ALTER TABLE public.message_versions ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX idx_message_versions_msg ON public.message_versions(message_id);
+
+CREATE OR REPLACE FUNCTION private.on_insert_message_versions()
+RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_message_versions
+    BEFORE INSERT ON public.message_versions
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_message_versions();
 
 
 -- ================================================================
 -- TRIGGERS
 -- ================================================================
 
--- Atomically assign the next per-conversation message_number before insert
-CREATE OR REPLACE FUNCTION private.assign_message_number()
+-- Atomically assign the next per-conversation message_number before insert,
+-- and set created_at.
+CREATE OR REPLACE FUNCTION private.on_insert_messages()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private AS $$
 BEGIN
+    NEW.created_at = NOW();
     INSERT INTO private.conversation_message_seq (conversation_id, last_number)
     VALUES (NEW.conversation_id, 1)
     ON CONFLICT (conversation_id) DO UPDATE
@@ -152,12 +251,12 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER assign_message_number
+CREATE TRIGGER on_insert_messages
     BEFORE INSERT ON public.messages
-    FOR EACH ROW EXECUTE FUNCTION private.assign_message_number();
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_messages();
 
--- Keep conversation summary columns up-to-date
-CREATE OR REPLACE FUNCTION private.on_message_inserted()
+-- Keep conversation summary columns up-to-date after insert.
+CREATE OR REPLACE FUNCTION private.on_messages_inserted()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private AS $$
 BEGIN
     UPDATE public.conversations SET
@@ -169,12 +268,12 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER on_message_inserted
+CREATE TRIGGER on_messages_inserted
     AFTER INSERT ON public.messages
-    FOR EACH ROW EXECUTE FUNCTION private.on_message_inserted();
+    FOR EACH ROW EXECUTE FUNCTION private.on_messages_inserted();
 
--- Prevent mutation of routing/sequencing fields after insert
-CREATE OR REPLACE FUNCTION private.enforce_message_immutable_fields()
+-- Prevent mutation of routing/sequencing fields after insert.
+CREATE OR REPLACE FUNCTION private.on_update_messages()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, private AS $$
 BEGIN
     IF NEW.conversation_id   IS DISTINCT FROM OLD.conversation_id   OR
@@ -189,51 +288,17 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER enforce_message_immutable_fields
+CREATE TRIGGER on_update_messages
     BEFORE UPDATE ON public.messages
-    FOR EACH ROW EXECUTE FUNCTION private.enforce_message_immutable_fields();
-
-
--- ================================================================
--- INDEXES
--- ================================================================
-
-CREATE INDEX idx_conversations_tenant      ON public.conversations(tenant_id);
-CREATE INDEX idx_conversations_created_by  ON public.conversations(created_by);
-CREATE INDEX idx_conversations_type        ON public.conversations(type);
-
-CREATE INDEX idx_conv_participants_account ON public.conversation_participants(account_id);
-
-CREATE INDEX idx_conv_targets_type_id      ON public.conversation_targets(target_type, target_id);
-
-CREATE INDEX idx_messages_conv_number      ON public.messages(conversation_id, message_number);
-CREATE INDEX idx_messages_conv_created     ON public.messages(conversation_id, created_at);
-CREATE INDEX idx_messages_sender           ON public.messages(sender_id);
-CREATE INDEX idx_messages_parent           ON public.messages(parent_message_id)
-    WHERE parent_message_id IS NOT NULL;
-
-CREATE INDEX idx_message_reactions_msg     ON public.message_reactions(message_id);
-
-CREATE INDEX idx_conv_reads_account        ON public.conversation_reads(account_id);
-
-CREATE INDEX idx_message_versions_msg      ON public.message_versions(message_id);
+    FOR EACH ROW EXECUTE FUNCTION private.on_update_messages();
 
 
 -- ================================================================
 -- ROW LEVEL SECURITY
 -- ================================================================
 
-ALTER TABLE public.conversations            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.conversation_participants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.conversation_targets     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.messages                 ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.message_attachments      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.message_reactions        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.conversation_reads       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.message_versions         ENABLE ROW LEVEL SECURITY;
-
 -- Reusable helper: true when auth.uid() belongs to a participant of the given conversation
-CREATE OR REPLACE FUNCTION private.is_conversation_participant(p_conversation_id uuid)
+CREATE OR REPLACE FUNCTION private.is_conversation_participant(p_conversation_id BIGINT)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, private AS $$
     SELECT EXISTS (
         SELECT 1

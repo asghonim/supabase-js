@@ -184,13 +184,10 @@ describe('createTicketDb', () => {
       expect(data!.status).toBe('in_progress')
     })
 
-    it('sets resolved_at when provided', async () => {
+    it('sets resolved_at automatically when resolved', async () => {
       const ticket = await seedTicket(userA.accountId)
-      const resolvedAt = new Date().toISOString()
 
-      const { data, error } = await adminDb.updateStatus(ticket.id, 'resolved', {
-        resolved_at: resolvedAt,
-      })
+      const { data, error } = await adminDb.updateStatus(ticket.id, 'resolved')
       expect(error).toBeNull()
       expect(data!.resolved_at).toBeTruthy()
     })

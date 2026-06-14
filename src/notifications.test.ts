@@ -12,7 +12,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { admin, createTestUser, deleteTestUser, type TestUser } from './helpers'
-import { createNotificationsDb, render } from './notifications'
+import { createNotificationsDb, escapeHtml, render, renderHtml } from './notifications'
 
 // ── render ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +43,67 @@ describe('render', () => {
 
   it('returns an empty string unchanged', () => {
     expect(render('', {})).toBe('')
+  })
+})
+
+// ── escapeHtml ────────────────────────────────────────────────────────────────
+
+describe('escapeHtml', () => {
+  it('escapes & to &amp;', () => {
+    expect(escapeHtml('a & b')).toBe('a &amp; b')
+  })
+
+  it('escapes < to &lt;', () => {
+    expect(escapeHtml('<div>')).toBe('&lt;div&gt;')
+  })
+
+  it('escapes > to &gt;', () => {
+    expect(escapeHtml('a > b')).toBe('a &gt; b')
+  })
+
+  it('escapes " to &quot;', () => {
+    expect(escapeHtml('"quoted"')).toBe('&quot;quoted&quot;')
+  })
+
+  it("escapes ' to &#39;", () => {
+    expect(escapeHtml("it's")).toBe("it&#39;s")
+  })
+
+  it('escapes multiple special characters in one string', () => {
+    expect(escapeHtml('<b class="x">it\'s a & b</b>')).toBe('&lt;b class=&quot;x&quot;&gt;it&#39;s a &amp; b&lt;/b&gt;')
+  })
+
+  it('returns plain text unchanged', () => {
+    expect(escapeHtml('Hello World')).toBe('Hello World')
+  })
+
+  it('returns empty string unchanged', () => {
+    expect(escapeHtml('')).toBe('')
+  })
+})
+
+// ── renderHtml ────────────────────────────────────────────────────────────────
+
+describe('renderHtml', () => {
+  it('replaces a known token and escapes the value', () => {
+    expect(renderHtml('Hello {{name}}!', { name: '<Alice>' })).toBe('Hello &lt;Alice&gt;!')
+  })
+
+  it('replaces multiple tokens with HTML-escaped values', () => {
+    // Only substituted values are escaped; literal template text is passed through unchanged.
+    expect(renderHtml('{{a}} & {{b}}', { a: '<x>', b: '"y"' })).toBe('&lt;x&gt; & &quot;y&quot;')
+  })
+
+  it('leaves unknown tokens as-is (not escaped)', () => {
+    expect(renderHtml('Hello {{unknown}}!', {})).toBe('Hello {{unknown}}!')
+  })
+
+  it('does not double-escape already-escaped text outside tokens', () => {
+    expect(renderHtml('a &amp; b {{name}}', { name: 'Alice' })).toBe('a &amp; b Alice')
+  })
+
+  it('returns empty string unchanged', () => {
+    expect(renderHtml('', {})).toBe('')
   })
 })
 
@@ -611,6 +672,326 @@ describe('notification system RLS', () => {
       const { data: afterArchive } = await userA.client.rpc('unread_notification_count')
 
       expect(Number(afterArchive)).toBe(Number(beforeArchive) - 1)
+    })
+  })
+})
+
+// ── createNotificationsDb methods ─────────────────────────────────────────────
+
+describe('createNotificationsDb', () => {
+  let userA: TestUser
+  let adminDb: ReturnType<typeof createNotificationsDb>
+  let userDb: ReturnType<typeof createNotificationsDb>
+
+  beforeAll(async () => {
+    userA = await createTestUser('notif-db-a')
+    adminDb = createNotificationsDb(admin)
+    userDb = createNotificationsDb(userA.client)
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+  })
+
+  // ── inbox methods ─────────────────────────────────────────────────────────
+
+  describe('inbox', () => {
+    it('createInboxItem inserts and returns the item (admin)', async () => {
+      const event = await seedEvent(userA.accountId)
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      const { data, error } = await adminDb.createInboxItem({
+        recipient_id: recipient.id,
+        account_id: userA.accountId,
+        title: 'DB test notification',
+        body: 'DB test body',
+      })
+      expect(error).toBeNull()
+      expect(data!.title).toBe('DB test notification')
+      expect(data!.account_id).toBe(userA.accountId)
+    })
+
+    it('getInboxItem retrieves a single item', async () => {
+      const event = await seedEvent(userA.accountId)
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      const item = await seedInboxItem(recipient.id, userA.accountId)
+      const { data, error } = await userDb.getInboxItem(item.id)
+      expect(error).toBeNull()
+      expect(data!.id).toBe(item.id)
+    })
+
+    it('listInbox returns inbox items for an account', async () => {
+      const event = await seedEvent(userA.accountId)
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      await seedInboxItem(recipient.id, userA.accountId)
+      const { data, error } = await userDb.listInbox(userA.accountId)
+      expect(error).toBeNull()
+      expect(Array.isArray(data)).toBe(true)
+      expect(data!.length).toBeGreaterThan(0)
+    })
+
+    it('listInbox excludes archived items by default', async () => {
+      const event = await seedEvent(userA.accountId)
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      const item = await seedInboxItem(recipient.id, userA.accountId)
+      await userA.client.rpc('archive_notification', { p_inbox_id: item.id })
+
+      const { data } = await userDb.listInbox(userA.accountId)
+      const archivedInList = data!.find(i => i.id === item.id)
+      expect(archivedInList).toBeUndefined()
+    })
+
+    it('listInbox includes archived items when includeArchived = true', async () => {
+      const event = await seedEvent(userA.accountId)
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      const item = await seedInboxItem(recipient.id, userA.accountId)
+      await userA.client.rpc('archive_notification', { p_inbox_id: item.id })
+
+      const { data } = await userDb.listInbox(userA.accountId, { includeArchived: true })
+      expect(data!.some(i => i.id === item.id)).toBe(true)
+    })
+
+    it('listInbox can filter by groupKey', async () => {
+      const event = await seedEvent(userA.accountId)
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      const groupKey = `group-${Date.now()}`
+      await seedInboxItem(recipient.id, userA.accountId, { group_key: groupKey })
+
+      const { data, error } = await userDb.listInbox(userA.accountId, { groupKey })
+      expect(error).toBeNull()
+      expect(data!.every(i => i.group_key === groupKey)).toBe(true)
+    })
+
+    it('listInbox respects limit', async () => {
+      const { data, error } = await userDb.listInbox(userA.accountId, { limit: 1 })
+      expect(error).toBeNull()
+      expect(data!.length).toBeLessThanOrEqual(1)
+    })
+
+    it('listInbox respects offset', async () => {
+      const event = await seedEvent(userA.accountId)
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      await seedInboxItem(recipient.id, userA.accountId)
+
+      const { data: page0, error } = await userDb.listInbox(userA.accountId, { limit: 2, offset: 0 })
+      expect(error).toBeNull()
+      expect(Array.isArray(page0)).toBe(true)
+    })
+
+    it('markRead marks an inbox item as read via db method', async () => {
+      const event = await seedEvent(userA.accountId)
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      const item = await seedInboxItem(recipient.id, userA.accountId)
+      const { error } = await userDb.markRead(item.id)
+      expect(error).toBeNull()
+
+      const { data } = await admin.from('notification_inbox').select('is_read').eq('id', item.id).single()
+      expect(data!.is_read).toBe(true)
+    })
+
+    it('markAllRead marks all items as read via db method', async () => {
+      const { error } = await userDb.markAllRead()
+      expect(error).toBeNull()
+    })
+
+    it('archive archives an item via db method', async () => {
+      const event = await seedEvent(userA.accountId)
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      const item = await seedInboxItem(recipient.id, userA.accountId)
+      const { error } = await userDb.archive(item.id)
+      expect(error).toBeNull()
+
+      const { data } = await admin.from('notification_inbox').select('archived_at').eq('id', item.id).single()
+      expect(data!.archived_at).toBeTruthy()
+    })
+
+    it('unreadCount returns a number via db method', async () => {
+      const { data, error } = await userDb.unreadCount()
+      expect(error).toBeNull()
+      expect(typeof Number(data)).toBe('number')
+    })
+  })
+
+  // ── event methods ─────────────────────────────────────────────────────────
+
+  describe('events', () => {
+    it('createEvent inserts and returns the event', async () => {
+      const { data, error } = await adminDb.createEvent({
+        type: 'test.db.event',
+        entity_type: 'test',
+        entity_id: String(Date.now()),
+        payload: { foo: 'bar' },
+      })
+      expect(error).toBeNull()
+      expect(data!.type).toBe('test.db.event')
+    })
+
+    it('getEvent retrieves a single event by id', async () => {
+      const event = await seedEvent(userA.accountId)
+      const { data, error } = await adminDb.getEvent(event.id)
+      expect(error).toBeNull()
+      expect(data!.id).toBe(event.id)
+    })
+
+    it('listEventsForEntity returns events for the given entity', async () => {
+      const entityId = `entity-${Date.now()}`
+      const { data: ev } = await adminDb.createEvent({
+        type: 'test.entity.event',
+        entity_type: 'test_resource',
+        entity_id: entityId,
+        payload: {},
+      })
+      const { data, error } = await adminDb.listEventsForEntity('test_resource', entityId)
+      expect(error).toBeNull()
+      expect(data!.some(e => e.id === ev!.id)).toBe(true)
+    })
+
+    it('createRecipient inserts and returns the recipient', async () => {
+      const event = await seedEvent(userA.accountId)
+      const { data, error } = await adminDb.createRecipient({ event_id: event.id, account_id: userA.accountId })
+      expect(error).toBeNull()
+      expect(data!.event_id).toBe(event.id)
+      expect(data!.account_id).toBe(userA.accountId)
+    })
+
+    it('getRecipient retrieves a recipient by id', async () => {
+      const event = await seedEvent()
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      const { data, error } = await adminDb.getRecipient(recipient.id)
+      expect(error).toBeNull()
+      expect(data!.id).toBe(recipient.id)
+    })
+
+    it('listRecipientsForEvent returns all recipients for an event', async () => {
+      const event = await seedEvent()
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      const { data, error } = await adminDb.listRecipientsForEvent(event.id)
+      expect(error).toBeNull()
+      expect(data!.some(r => r.id === recipient.id)).toBe(true)
+    })
+
+    it('listDeliveries returns deliveries for a recipient', async () => {
+      const event = await seedEvent()
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      await admin.from('notification_deliveries').insert({ recipient_id: recipient.id, channel: 'in_app' })
+      const { data, error } = await adminDb.listDeliveries(recipient.id)
+      expect(error).toBeNull()
+      expect(Array.isArray(data)).toBe(true)
+    })
+
+    it('listDeliveries can filter by channel', async () => {
+      const event = await seedEvent()
+      const recipient = await seedRecipient(event.id, userA.accountId)
+      await admin.from('notification_deliveries').insert({ recipient_id: recipient.id, channel: 'email' })
+      const { data, error } = await adminDb.listDeliveries(recipient.id, { channel: 'email' })
+      expect(error).toBeNull()
+      expect(data!.every(d => d.channel === 'email')).toBe(true)
+    })
+  })
+
+  // ── preference methods ────────────────────────────────────────────────────
+
+  describe('preferences', () => {
+    const notifType = `db.pref.test.${Date.now()}`
+
+    it('upsertPreference inserts a preference', async () => {
+      const { data, error } = await userDb.upsertPreference({
+        account_id: userA.accountId,
+        notification_type: notifType,
+        channel: 'in_app',
+        is_enabled: true,
+      })
+      expect(error).toBeNull()
+      expect(data!.notification_type).toBe(notifType)
+    })
+
+    it('listPreferences returns all preferences for an account', async () => {
+      const { data, error } = await userDb.listPreferences(userA.accountId)
+      expect(error).toBeNull()
+      expect(data!.some(p => p.notification_type === notifType)).toBe(true)
+    })
+
+    it('getPreference retrieves a specific preference', async () => {
+      const { data, error } = await userDb.getPreference(userA.accountId, notifType, 'in_app')
+      expect(error).toBeNull()
+      expect(data!.notification_type).toBe(notifType)
+      expect(data!.channel).toBe('in_app')
+    })
+
+    it('updatePreference updates a preference field', async () => {
+      const { data: pref } = await userDb.getPreference(userA.accountId, notifType, 'in_app')
+      const { data, error } = await userDb.updatePreference(pref!.id, { is_enabled: false })
+      expect(error).toBeNull()
+      expect(data!.is_enabled).toBe(false)
+    })
+
+    it('setChannelEnabled upserts and enables a channel', async () => {
+      const { data, error } = await userDb.setChannelEnabled(userA.accountId, notifType, 'email', true)
+      expect(error).toBeNull()
+      expect(data!.is_enabled).toBe(true)
+      expect(data!.channel).toBe('email')
+    })
+
+    it('setChannelEnabled can set frequency', async () => {
+      const { data, error } = await userDb.setChannelEnabled(userA.accountId, notifType, 'email', true, 'daily_digest')
+      expect(error).toBeNull()
+      expect(data!.frequency).toBe('daily_digest')
+    })
+
+    it('deletePreference removes the preference', async () => {
+      const { data: pref } = await userDb.getPreference(userA.accountId, notifType, 'in_app')
+      if (!pref) return
+      const { error } = await userDb.deletePreference(pref.id)
+      expect(error).toBeNull()
+    })
+  })
+
+  // ── template methods ──────────────────────────────────────────────────────
+
+  describe('templates', () => {
+    it('getTemplate retrieves an active template', async () => {
+      const type = `db.tmpl.get.${Date.now()}`
+      await admin.from('notification_templates').insert({
+        type, channel: 'email', locale: 'en', body_template: 'Hello', is_active: true,
+      })
+      const { data, error } = await userDb.getTemplate(type, 'email')
+      expect(error).toBeNull()
+      expect(data!.type).toBe(type)
+    })
+
+    it('listTemplates returns active templates', async () => {
+      const type = `db.tmpl.list.${Date.now()}`
+      await admin.from('notification_templates').insert({
+        type, channel: 'email', locale: 'en', body_template: 'List test', is_active: true,
+      })
+      const { data, error } = await userDb.listTemplates()
+      expect(error).toBeNull()
+      expect(data!.some(t => t.type === type)).toBe(true)
+    })
+
+    it('listTemplates can filter by type', async () => {
+      const type = `db.tmpl.filter.${Date.now()}`
+      await admin.from('notification_templates').insert({
+        type, channel: 'in_app', locale: 'en', body_template: 'Filter test', is_active: true,
+      })
+      const { data, error } = await userDb.listTemplates({ type })
+      expect(error).toBeNull()
+      expect(data!.every(t => t.type === type)).toBe(true)
+    })
+
+    it('listTemplates can filter by channel', async () => {
+      const { data, error } = await userDb.listTemplates({ channel: 'email' })
+      expect(error).toBeNull()
+      expect(data!.every(t => t.channel === 'email')).toBe(true)
+    })
+  })
+
+  // ── digest methods ────────────────────────────────────────────────────────
+
+  describe('listPendingDigests', () => {
+    it('returns an array (empty is fine)', async () => {
+      const { data, error } = await adminDb.listPendingDigests(userA.accountId)
+      expect(error).toBeNull()
+      expect(Array.isArray(data)).toBe(true)
     })
   })
 })

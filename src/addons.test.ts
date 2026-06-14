@@ -10,7 +10,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createTestUser, deleteTestUser, type TestUser } from './helpers'
+import { admin, createTestUser, deleteTestUser, uniqueSlug, type TestUser } from './helpers'
 import { createAddonsDb } from './addons'
 
 // ── addons RLS ────────────────────────────────────────────────────────────────
@@ -157,5 +157,79 @@ describe('addons — listEntitlementsForVersion', () => {
     for (const ent of data!) {
       expect(ent).toHaveProperty('features')
     }
+  })
+})
+
+// ── seeded-data coverage (admin client, no test user needed) ──────────────────
+
+describe('createAddonsDb — seeded data coverage', () => {
+  const adminDb = createAddonsDb(admin)
+  let addonId: number
+  let addonVersionId: number
+
+  beforeAll(async () => {
+    const { data: addon, error: addonErr } = await admin
+      .from('addons')
+      .insert({ name: 'Coverage Addon', key: uniqueSlug('cov-addon'), is_active: true })
+      .select('id')
+      .single()
+    if (!addon) throw new Error(`addon insert failed: ${addonErr?.message}`)
+    addonId = addon.id
+
+    const { data: av, error: avErr } = await admin
+      .from('addon_versions')
+      .insert({ addon_id: addonId, price_amount: 0, is_active: true })
+      .select('id')
+      .single()
+    if (!av) throw new Error(`addon_version insert failed: ${avErr?.message}`)
+    addonVersionId = av.id
+  })
+
+  afterAll(async () => {
+    await admin.from('addon_versions').delete().eq('id', addonVersionId)
+    await admin.from('addons').delete().eq('id', addonId)
+  })
+
+  it('getById returns the addon with its versions', async () => {
+    const { data, error } = await adminDb.getById(addonId)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(addonId)
+    expect(Array.isArray(data!.addon_versions)).toBe(true)
+  })
+
+  it('getByKey returns the addon by key', async () => {
+    const { data: meta } = await admin.from('addons').select('key').eq('id', addonId).single()
+    const { data, error } = await adminDb.getByKey(meta!.key)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(addonId)
+  })
+
+  it('getActiveVersion returns the active version for the addon', async () => {
+    const { data, error } = await adminDb.getActiveVersion(addonId)
+    expect(error).toBeNull()
+    expect(data!.addon_id).toBe(addonId)
+    expect(data!.is_active).toBe(true)
+  })
+
+  it('getVersionById returns the version with its parent addon', async () => {
+    const { data, error } = await adminDb.getVersionById(addonVersionId)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(addonVersionId)
+    expect(data!.addons).toBeTruthy()
+  })
+
+  it('getVersionByProviderId returns the version by billing_provider_price_id', async () => {
+    const providerId = `cov-provider-${Date.now()}`
+    await admin.from('addon_versions').update({ billing_provider_price_id: providerId }).eq('id', addonVersionId)
+
+    const { data, error } = await adminDb.getVersionByProviderId(providerId)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(addonVersionId)
+  })
+
+  it('listEntitlementsForVersion returns an array (empty if none)', async () => {
+    const { data, error } = await adminDb.listEntitlementsForVersion(addonVersionId)
+    expect(error).toBeNull()
+    expect(Array.isArray(data)).toBe(true)
   })
 })

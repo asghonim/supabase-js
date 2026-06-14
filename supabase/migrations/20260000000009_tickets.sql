@@ -16,51 +16,71 @@ CREATE TYPE public.ticket_priority AS ENUM (
 );
 
 CREATE TABLE public.tickets (
-    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
-    status                  public.ticket_status NOT NULL DEFAULT 'new',
-    priority                public.ticket_priority NOT NULL DEFAULT 'normal',
-    source                  TEXT,
-    category                TEXT,
-    subject                 TEXT,
-    message                 TEXT NOT NULL,
-    full_name               TEXT,
-    email                   TEXT,
-    phone                   TEXT,
-    company_name            TEXT,
-    ip_address              INET,
-    user_agent              TEXT,
-    referer                 TEXT,
+    id                         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                        UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    status                     public.ticket_status   NOT NULL DEFAULT 'new',
+    priority                   public.ticket_priority NOT NULL DEFAULT 'normal',
+    source                     TEXT        CHECK (char_length(source) <= 100),
+    category                   TEXT        CHECK (char_length(category) <= 255),
+    subject                    TEXT        CHECK (char_length(subject) <= 500),
+    message                    TEXT        NOT NULL CHECK (char_length(message) BETWEEN 1 AND 65535),
+    full_name                  TEXT        CHECK (char_length(full_name) <= 255),
+    email                      TEXT        CHECK (char_length(email) <= 320),
+    phone                      TEXT        CHECK (char_length(phone) <= 50),
+    company_name               TEXT        CHECK (char_length(company_name) <= 255),
+    ip_address                 INET,
+    user_agent                 TEXT        CHECK (char_length(user_agent) <= 1000),
+    referer                    TEXT        CHECK (char_length(referer) <= 2048),
     authenticated_account_id   BIGINT REFERENCES public.accounts(id) ON DELETE SET NULL,
     assigned_to_account_id     BIGINT REFERENCES public.accounts(id) ON DELETE SET NULL,
-    spam_score              NUMERIC(5,2),
-    first_response_at       TIMESTAMPTZ,
-    resolved_at             TIMESTAMPTZ,
-    due_at                  TIMESTAMPTZ,
-    metadata                JSONB NOT NULL DEFAULT '{}'
+    spam_score                 NUMERIC(5,2),
+    first_response_at          TIMESTAMPTZ,
+    resolved_at                TIMESTAMPTZ,
+    due_at                     TIMESTAMPTZ,
+    metadata                   JSONB NOT NULL DEFAULT '{}',
+    created_at                 TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 GRANT ALL ON TABLE public.tickets TO authenticated, service_role;
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION private.on_insert_tickets()  RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_tickets_inserted  BEFORE INSERT ON tickets  FOR EACH ROW EXECUTE FUNCTION private.on_insert_tickets();
+CREATE INDEX idx_tickets_status         ON public.tickets(status);
+CREATE INDEX idx_tickets_created_at     ON public.tickets(created_at DESC);
+CREATE INDEX idx_tickets_email          ON public.tickets(email);
+CREATE INDEX idx_tickets_assigned       ON public.tickets(assigned_to_account_id);
+CREATE INDEX idx_tickets_authed_account ON public.tickets(authenticated_account_id);
+CREATE INDEX idx_tickets_ip             ON public.tickets(ip_address);
 
-CREATE INDEX idx_ticket_status          ON tickets(status);
-CREATE INDEX idx_ticket_created_at      ON tickets(created_at DESC);
-CREATE INDEX idx_ticket_email           ON tickets(email);
-CREATE INDEX idx_ticket_assigned        ON tickets(assigned_to_account_id);
-CREATE INDEX idx_ticket_authed_account  ON tickets(authenticated_account_id);
-CREATE INDEX idx_ticket_ip              ON tickets(ip_address);
+CREATE INDEX idx_tickets_message_fts ON public.tickets USING gin(message gin_trgm_ops);
+CREATE INDEX idx_tickets_subject_fts ON public.tickets USING gin(coalesce(subject, '') gin_trgm_ops);
 
+CREATE OR REPLACE FUNCTION private.on_insert_tickets() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_tickets BEFORE INSERT ON public.tickets FOR EACH ROW EXECUTE FUNCTION private.on_insert_tickets();
 
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX idx_ticket_message_fts ON tickets USING gin(message gin_trgm_ops);
-CREATE INDEX idx_ticket_subject_fts ON tickets USING gin(coalesce(subject, '') gin_trgm_ops);
+CREATE OR REPLACE FUNCTION private.on_update_tickets()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.status = 'new' AND NEW.status <> 'new' AND NEW.first_response_at IS NULL THEN
+        NEW.first_response_at = NOW();
+    END IF;
 
-ALTER TABLE tickets  ENABLE ROW LEVEL SECURITY;
+    IF NEW.status IN ('resolved', 'closed') AND NEW.resolved_at IS NULL THEN
+        NEW.resolved_at = NOW();
+    END IF;
 
--- Authenticated users can view their own tickets
+    IF OLD.status IN ('resolved', 'closed') AND NEW.status NOT IN ('resolved', 'closed') THEN
+        NEW.resolved_at = NULL;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+
+CREATE TRIGGER on_update_tickets
+    BEFORE UPDATE ON public.tickets
+    FOR EACH ROW EXECUTE FUNCTION private.on_update_tickets();
+
 CREATE POLICY "Allow users to view own tickets"
-    ON tickets FOR SELECT
+    ON public.tickets FOR SELECT
     TO authenticated
     USING (
         EXISTS (

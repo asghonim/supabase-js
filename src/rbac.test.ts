@@ -17,6 +17,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
+  admin,
   addOrgMember,
   createTestOrg,
   createTestUser,
@@ -349,5 +350,43 @@ describe('getMyOrgPermissions RPC', () => {
     const { data, error } = await db.getMyOrgPermissions(org.id)
     expect(error).toBeNull()
     expect(data).toEqual([])
+  })
+})
+
+// ── assignPlatformRole / revokePlatformRole ───────────────────────────────────
+
+describe('createRbacDb — assignPlatformRole / revokePlatformRole', () => {
+  let user: TestUser
+  let auditorRoleId: number
+
+  beforeAll(async () => {
+    user = await createTestUser('rbac-assign-plat')
+    const { data: roles } = await createRbacDb(admin).listPlatformRoles()
+    auditorRoleId = roles!.find(r => r.key === 'auditor')!.id
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(user.id)
+  })
+
+  it('admin can assign a platform role to an account', async () => {
+    const db = createRbacDb(admin)
+    const { data, error } = await db.assignPlatformRole(user.accountId, auditorRoleId, user.accountId)
+    expect(error).toBeNull()
+    expect(data!.account_id).toBe(user.accountId)
+    expect(data!.platform_role_id).toBe(auditorRoleId)
+  })
+
+  it('revokePlatformRole removes the assignment', async () => {
+    const db = createRbacDb(admin)
+    const { error } = await db.revokePlatformRole(user.accountId, auditorRoleId)
+    expect(error).toBeNull()
+
+    const { data } = await admin
+      .from('account_platform_roles')
+      .select('*')
+      .eq('account_id', user.accountId)
+      .eq('platform_role_id', auditorRoleId)
+    expect(data).toHaveLength(0)
   })
 })

@@ -57,3 +57,10 @@ export type {
   ConversationReadInsert,
   MessageVersionRow,
 } from './conversations';
+export { createWalletsDb, createAdminWalletsDb } from './wallets';
+export type {
+  WalletsDb, AdminWalletsDb,
+  WalletRow, WalletHoldRow, LedgerAccountRow,
+  JournalEntryRow, JournalLineRow,
+  WalletOwnerType, WalletHoldStatus, LedgerAccountType,
+} from './wallets';
