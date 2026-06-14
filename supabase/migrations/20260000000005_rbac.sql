@@ -1,33 +1,48 @@
 CREATE TABLE public.permissions (
     id          BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    key         TEXT        NOT NULL UNIQUE,
-    name        TEXT        NOT NULL,
-    description TEXT,
+    uid         UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    key         TEXT        NOT NULL UNIQUE CHECK (char_length(key) BETWEEN 1 AND 100),
+    name        TEXT        NOT NULL CHECK (char_length(name) BETWEEN 1 AND 255),
+    description TEXT        CHECK (char_length(description) <= 1000),
     scope       TEXT        NOT NULL CHECK (scope IN ('platform', 'organization', 'project', 'api')),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 GRANT ALL ON TABLE public.permissions TO authenticated, service_role;
+ALTER TABLE public.permissions ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_permissions_scope ON public.permissions(scope);
 
+CREATE OR REPLACE FUNCTION private.on_insert_permissions() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_permissions BEFORE INSERT ON public.permissions FOR EACH ROW EXECUTE FUNCTION private.on_insert_permissions();
+
 CREATE TABLE public.platform_roles (
     id          BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    key         TEXT        NOT NULL UNIQUE,
-    name        TEXT        NOT NULL,
-    description TEXT,
+    uid         UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    key         TEXT        NOT NULL UNIQUE CHECK (char_length(key) BETWEEN 1 AND 100),
+    name        TEXT        NOT NULL CHECK (char_length(name) BETWEEN 1 AND 255),
+    description TEXT        CHECK (char_length(description) <= 1000),
     is_system   BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 GRANT ALL ON TABLE public.platform_roles TO authenticated, service_role;
+ALTER TABLE public.platform_roles ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION private.on_insert_platform_roles() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_platform_roles BEFORE INSERT ON public.platform_roles FOR EACH ROW EXECUTE FUNCTION private.on_insert_platform_roles();
 
 CREATE TABLE public.platform_role_permissions (
-    platform_role_id BIGINT NOT NULL REFERENCES public.platform_roles(id) ON DELETE CASCADE,
-    permission_id    BIGINT NOT NULL REFERENCES public.permissions(id)     ON DELETE CASCADE,
+    platform_role_id BIGINT      NOT NULL REFERENCES public.platform_roles(id) ON DELETE CASCADE,
+    permission_id    BIGINT      NOT NULL REFERENCES public.permissions(id)     ON DELETE CASCADE,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (platform_role_id, permission_id)
 );
 GRANT ALL ON TABLE public.platform_role_permissions TO authenticated, service_role;
+ALTER TABLE public.platform_role_permissions ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_platform_role_perms_role ON public.platform_role_permissions(platform_role_id);
+
+CREATE OR REPLACE FUNCTION private.on_insert_platform_role_permissions() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_platform_role_permissions BEFORE INSERT ON public.platform_role_permissions FOR EACH ROW EXECUTE FUNCTION private.on_insert_platform_role_permissions();
 
 CREATE TABLE public.account_platform_roles (
     account_id            BIGINT      NOT NULL REFERENCES public.accounts(id)       ON DELETE CASCADE,
@@ -37,32 +52,48 @@ CREATE TABLE public.account_platform_roles (
     PRIMARY KEY (account_id, platform_role_id)
 );
 GRANT ALL ON TABLE public.account_platform_roles TO authenticated, service_role;
+ALTER TABLE public.account_platform_roles ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_account_platform_roles_account ON public.account_platform_roles(account_id);
+
+CREATE OR REPLACE FUNCTION private.on_insert_account_platform_roles() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_account_platform_roles BEFORE INSERT ON public.account_platform_roles FOR EACH ROW EXECUTE FUNCTION private.on_insert_account_platform_roles();
 
 -- organization_id IS NULL → system role (available to every org).
 -- organization_id IS NOT NULL → custom role scoped to that org.
 CREATE TABLE public.organization_roles (
     id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     organization_id BIGINT               REFERENCES public.organizations(id) ON DELETE CASCADE,
-    key             TEXT        NOT NULL,
-    name            TEXT        NOT NULL,
-    description     TEXT,
+    key             TEXT        NOT NULL CHECK (char_length(key) BETWEEN 1 AND 100),
+    name            TEXT        NOT NULL CHECK (char_length(name) BETWEEN 1 AND 255),
+    description     TEXT        CHECK (char_length(description) <= 1000),
     is_system       BOOLEAN     NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 GRANT ALL ON TABLE public.organization_roles TO authenticated, service_role;
+ALTER TABLE public.organization_roles ENABLE ROW LEVEL SECURITY;
+
 CREATE UNIQUE INDEX uq_org_role_key_scoped ON public.organization_roles(organization_id, key) WHERE organization_id IS NOT NULL;
 CREATE UNIQUE INDEX uq_org_role_key_system ON public.organization_roles(key) WHERE organization_id IS NULL;
 CREATE INDEX idx_org_roles_org ON public.organization_roles(organization_id);
 
+CREATE OR REPLACE FUNCTION private.on_insert_organization_roles() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_organization_roles BEFORE INSERT ON public.organization_roles FOR EACH ROW EXECUTE FUNCTION private.on_insert_organization_roles();
+
 CREATE TABLE public.organization_role_permissions (
-    organization_role_id BIGINT NOT NULL REFERENCES public.organization_roles(id) ON DELETE CASCADE,
-    permission_id        BIGINT NOT NULL REFERENCES public.permissions(id)         ON DELETE CASCADE,
+    organization_role_id BIGINT      NOT NULL REFERENCES public.organization_roles(id) ON DELETE CASCADE,
+    permission_id        BIGINT      NOT NULL REFERENCES public.permissions(id)         ON DELETE CASCADE,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (organization_role_id, permission_id)
 );
 GRANT ALL ON TABLE public.organization_role_permissions TO authenticated, service_role;
+ALTER TABLE public.organization_role_permissions ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX idx_org_role_perms_role ON public.organization_role_permissions(organization_role_id);
+
+CREATE OR REPLACE FUNCTION private.on_insert_organization_role_permissions() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_organization_role_permissions BEFORE INSERT ON public.organization_role_permissions FOR EACH ROW EXECUTE FUNCTION private.on_insert_organization_role_permissions();
 
 INSERT INTO public.organization_roles (organization_id, key, name, description, is_system) VALUES
     (NULL, 'owner',   'Owner',           'Full organizational control; cannot be removed without transferring ownership', TRUE),
@@ -87,25 +118,26 @@ CREATE INDEX idx_org_members_org_role ON public.organization_members(organizatio
 
 INSERT INTO public.permissions (key, name, description, scope) VALUES
     -- platform
-    ('platform.admin',       'Platform Administrator',   'Full platform access; bypasses all org and project checks', 'platform'),
-    ('platform.support',     'Platform Support Access',  'Read-only support access across all resources',             'platform'),
+    ('platform.admin',       'Platform Administrator',   'Full platform access; bypasses all org and project checks',          'platform'),
+    ('platform.support',     'Platform Support Access',  'Read-only support access across all resources',                      'platform'),
     -- organization
-    ('organization.manage',  'Manage Organization',      'Update org settings, slug, and metadata',                   'organization'),
-    ('users.invite',         'Invite Users',             'Send org membership invitations',                           'organization'),
-    ('billing.manage',       'Manage Billing',           'View and update billing, plans, and invoices',              'organization'),
-    ('analytics.view',       'View Analytics',           'Access analytics and usage dashboards',                     'organization'),
-    ('audit.view',           'View Audit Logs',          'Read audit trails and access logs',                         'organization'),
-    ('security.review',      'Security Review',          'Review security settings and security events',              'organization'),
+    ('organization.manage',  'Manage Organization',      'Update org settings, slug, and metadata',                            'organization'),
+    ('users.invite',         'Invite Users',             'Send org membership invitations',                                    'organization'),
+    ('billing.manage',       'Manage Billing',           'View and update billing, plans, and invoices',                       'organization'),
+    ('analytics.view',       'View Analytics',           'Access analytics and usage dashboards',                              'organization'),
+    ('audit.view',           'View Audit Logs',          'Read audit trails and access logs',                                  'organization'),
+    ('security.review',      'Security Review',          'Review security settings and security events',                       'organization'),
+    ('wallet.view',          'View Wallet',              'View organization wallet balance and transaction history',            'organization'),
     -- project
-    ('qr.view',              'View QR Codes',            'Read QR code resources',                                    'project'),
-    ('qr.create',            'Create QR Codes',          'Create new QR code resources',                              'project'),
-    ('qr.update',            'Update QR Codes',          'Modify existing QR code resources',                         'project'),
-    ('qr.delete',            'Delete QR Codes',          'Delete QR code resources',                                  'project'),
-    ('apikey.create',        'Create API Keys',          'Generate new API keys for programmatic access',             'project'),
-    ('webhooks.manage',      'Manage Webhooks',          'Configure and manage webhook endpoints',                    'project'),
+    ('qr.view',              'View QR Codes',            'Read QR code resources',                                             'project'),
+    ('qr.create',            'Create QR Codes',          'Create new QR code resources',                                       'project'),
+    ('qr.update',            'Update QR Codes',          'Modify existing QR code resources',                                  'project'),
+    ('qr.delete',            'Delete QR Codes',          'Delete QR code resources',                                           'project'),
+    ('apikey.create',        'Create API Keys',          'Generate new API keys for programmatic access',                      'project'),
+    ('webhooks.manage',      'Manage Webhooks',          'Configure and manage webhook endpoints',                              'project'),
     -- api
-    ('api:read',             'API Read',                 'Read-only access via API key',                              'api'),
-    ('api:write',            'API Write',                'Read and write access via API key',                         'api');
+    ('api:read',             'API Read',                 'Read-only access via API key',                                       'api'),
+    ('api:write',            'API Write',                'Read and write access via API key',                                  'api');
 
 -- ================================================================
 -- SEED: PLATFORM ROLES
@@ -143,7 +175,8 @@ SELECT r.id, p.id
 FROM public.organization_roles r
 JOIN public.permissions p ON p.key IN (
     'organization.manage', 'users.invite', 'billing.manage',
-    'analytics.view', 'audit.view', 'security.review'
+    'analytics.view', 'audit.view', 'security.review',
+    'wallet.view', 'apikey.create'
 )
 WHERE r.key = 'owner' AND r.organization_id IS NULL;
 
@@ -152,7 +185,8 @@ INSERT INTO public.organization_role_permissions (organization_role_id, permissi
 SELECT r.id, p.id
 FROM public.organization_roles r
 JOIN public.permissions p ON p.key IN (
-    'organization.manage', 'users.invite', 'billing.manage', 'analytics.view'
+    'organization.manage', 'users.invite', 'billing.manage', 'analytics.view',
+    'wallet.view', 'apikey.create'
 )
 WHERE r.key = 'admin' AND r.organization_id IS NULL;
 
@@ -167,7 +201,7 @@ WHERE r.key = 'member' AND r.organization_id IS NULL;
 INSERT INTO public.organization_role_permissions (organization_role_id, permission_id)
 SELECT r.id, p.id
 FROM public.organization_roles r
-JOIN public.permissions p ON p.key IN ('billing.manage')
+JOIN public.permissions p ON p.key IN ('billing.manage', 'wallet.view', 'analytics.view')
 WHERE r.key = 'billing' AND r.organization_id IS NULL;
 
 -- Returns true if the calling user holds the named platform permission.
@@ -264,19 +298,15 @@ RETURNS TEXT[] AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
 
 
-ALTER TABLE public.permissions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can view permissions"
     ON public.permissions FOR SELECT TO authenticated USING (TRUE);
 
-ALTER TABLE public.platform_roles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can view platform roles"
     ON public.platform_roles FOR SELECT TO authenticated USING (TRUE);
 
-ALTER TABLE public.platform_role_permissions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can view platform role permissions"
     ON public.platform_role_permissions FOR SELECT TO authenticated USING (TRUE);
 
-ALTER TABLE public.account_platform_roles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own platform roles"
     ON public.account_platform_roles FOR SELECT TO authenticated
     USING (
@@ -288,7 +318,6 @@ CREATE POLICY "Platform admins can manage account platform roles"
     USING (private.is_platform_admin())
     WITH CHECK (private.is_platform_admin());
 
-ALTER TABLE public.organization_roles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Org members can view their organization roles"
     ON public.organization_roles FOR SELECT TO authenticated
     USING (
@@ -300,7 +329,6 @@ CREATE POLICY "Org admins can manage custom roles"
     USING (organization_id IS NOT NULL AND private.is_org_admin(organization_id))
     WITH CHECK (organization_id IS NOT NULL AND private.is_org_admin(organization_id));
 
-ALTER TABLE public.organization_role_permissions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can view organization role permissions"
     ON public.organization_role_permissions FOR SELECT TO authenticated
     USING (
@@ -331,4 +359,3 @@ CREATE POLICY "Org admins can manage custom role permissions"
               AND private.is_org_admin(r.organization_id)
         )
     );
-

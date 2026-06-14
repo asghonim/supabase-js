@@ -13,12 +13,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   admin,
+  addOrgMember,
   createTestUser,
   createTestOrg,
   deleteTestUser,
   uniqueSlug,
   type TestUser,
-  type TestOrg,
 } from './helpers'
 import { createWalletsDb, createAdminWalletsDb } from './wallets'
 
@@ -69,8 +69,9 @@ describe('wallets RLS', () => {
     expect(data).toBeNull()
   })
 
-  it('org members can view their org wallet', async () => {
+  it('org members with wallet.view permission can view their org wallet', async () => {
     const org = await createTestOrg(owner.accountId, uniqueSlug('wallet-org'))
+    await addOrgMember(org.id, owner.accountId, 'owner')
     await adminDb.createWallet('organization', org.id, 'USD')
 
     const db = createWalletsDb(owner.client)

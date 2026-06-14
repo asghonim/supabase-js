@@ -25,13 +25,13 @@
 -- ================================================================
 
 CREATE TYPE public.ledger_account_type AS ENUM (
-    'wallet',          -- user / org wallet
-    'bank',            -- external bank / payment gateway
-    'revenue',         -- platform revenue
-    'platform_fee',    -- fees retained by platform
-    'escrow',          -- funds held pending release
-    'refund_reserve',  -- reserve for anticipated refunds
-    'system'           -- misc internal accounts
+    'wallet',
+    'bank',
+    'revenue',
+    'platform_fee',
+    'escrow',
+    'refund_reserve',
+    'system'
 );
 
 CREATE TYPE public.wallet_owner_type AS ENUM (
@@ -48,14 +48,11 @@ CREATE TYPE public.wallet_hold_status AS ENUM (
 
 -- ================================================================
 -- LEDGER ACCOUNTS  (chart of accounts)
---
--- Each wallet maps to exactly one ledger account (type = 'wallet').
--- System accounts (bank, revenue, etc.) live here too and are
--- seeded at the bottom of this file.
 -- ================================================================
 
 CREATE TABLE public.ledger_accounts (
     id           BIGINT                     GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid          UUID                       NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     account_type public.ledger_account_type NOT NULL,
     currency     CHAR(3)                    NOT NULL DEFAULT 'USD',
     name         TEXT                       NOT NULL CHECK (char_length(name) BETWEEN 1 AND 255),
@@ -66,7 +63,7 @@ CREATE TABLE public.ledger_accounts (
 GRANT ALL ON TABLE public.ledger_accounts TO authenticated, service_role;
 ALTER TABLE public.ledger_accounts ENABLE ROW LEVEL SECURITY;
 
-CREATE INDEX idx_ledger_accounts_type ON public.ledger_accounts(account_type);
+CREATE INDEX idx_ledger_accounts_type     ON public.ledger_accounts(account_type);
 CREATE INDEX idx_ledger_accounts_currency ON public.ledger_accounts(currency);
 
 CREATE OR REPLACE FUNCTION private.on_insert_ledger_accounts()
@@ -83,14 +80,11 @@ CREATE TRIGGER on_insert_ledger_accounts
 
 -- ================================================================
 -- WALLETS  (owner-facing containers)
---
--- One wallet per (owner_type, owner_id, currency).
--- current_balance is a cached sum — updated by trigger on
--- journal_lines insert. Source of truth is always the ledger.
 -- ================================================================
 
 CREATE TABLE public.wallets (
     id                BIGINT                   GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid               UUID                     NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     ledger_account_id BIGINT                   NOT NULL REFERENCES public.ledger_accounts(id) ON DELETE RESTRICT,
     owner_type        public.wallet_owner_type NOT NULL,
     owner_id          BIGINT                   NOT NULL,
@@ -110,6 +104,17 @@ CREATE OR REPLACE FUNCTION private.on_insert_wallets()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.created_at = NOW();
+
+    IF NEW.owner_type = 'account' THEN
+        IF NOT EXISTS (SELECT 1 FROM public.accounts WHERE id = NEW.owner_id) THEN
+            RAISE EXCEPTION 'wallet owner_id % does not exist in accounts', NEW.owner_id;
+        END IF;
+    ELSIF NEW.owner_type = 'organization' THEN
+        IF NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = NEW.owner_id) THEN
+            RAISE EXCEPTION 'wallet owner_id % does not exist in organizations', NEW.owner_id;
+        END IF;
+    END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SET search_path = public, private;
@@ -120,14 +125,11 @@ CREATE TRIGGER on_insert_wallets
 
 -- ================================================================
 -- JOURNAL ENTRIES  (one per financial event)
---
--- A draft entry (posted_at IS NULL) accepts line inserts.
--- Call private.post_journal_entry() to verify balance and post.
--- Idempotency key prevents duplicate entries on retried requests.
 -- ================================================================
 
 CREATE TABLE public.journal_entries (
     id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     description     TEXT        CHECK (char_length(description) <= 1000),
     reference_type  TEXT        CHECK (char_length(reference_type) <= 50),
     reference_id    BIGINT,
@@ -138,9 +140,9 @@ CREATE TABLE public.journal_entries (
 GRANT ALL ON TABLE public.journal_entries TO authenticated, service_role;
 ALTER TABLE public.journal_entries ENABLE ROW LEVEL SECURITY;
 
-CREATE INDEX idx_journal_entries_reference   ON public.journal_entries(reference_type, reference_id)
+CREATE INDEX idx_journal_entries_reference ON public.journal_entries(reference_type, reference_id)
     WHERE reference_id IS NOT NULL;
-CREATE INDEX idx_journal_entries_posted      ON public.journal_entries(posted_at DESC)
+CREATE INDEX idx_journal_entries_posted    ON public.journal_entries(posted_at DESC)
     WHERE posted_at IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION private.on_insert_journal_entries()
@@ -157,16 +159,11 @@ CREATE TRIGGER on_insert_journal_entries
 
 -- ================================================================
 -- JOURNAL LINES  (the actual debit / credit rows)
---
--- The fundamental invariant — enforced by post_journal_entry():
---   SELECT SUM(amount) FROM journal_lines WHERE journal_entry_id = X
---   must equal 0 before an entry can be posted.
---
--- Positive amount on a wallet ledger account → balance goes up.
 -- ================================================================
 
 CREATE TABLE public.journal_lines (
     id                BIGINT        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid               UUID          NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     journal_entry_id  BIGINT        NOT NULL REFERENCES public.journal_entries(id) ON DELETE RESTRICT,
     ledger_account_id BIGINT        NOT NULL REFERENCES public.ledger_accounts(id) ON DELETE RESTRICT,
     amount            NUMERIC(20,4) NOT NULL,
@@ -175,8 +172,8 @@ CREATE TABLE public.journal_lines (
 GRANT ALL ON TABLE public.journal_lines TO authenticated, service_role;
 ALTER TABLE public.journal_lines ENABLE ROW LEVEL SECURITY;
 
-CREATE INDEX idx_journal_lines_entry          ON public.journal_lines(journal_entry_id);
-CREATE INDEX idx_journal_lines_ledger_account ON public.journal_lines(ledger_account_id);
+CREATE INDEX idx_journal_lines_entry           ON public.journal_lines(journal_entry_id);
+CREATE INDEX idx_journal_lines_ledger_account  ON public.journal_lines(ledger_account_id);
 CREATE INDEX idx_journal_lines_account_created ON public.journal_lines(ledger_account_id, created_at DESC);
 
 CREATE OR REPLACE FUNCTION private.on_insert_journal_lines()
@@ -193,7 +190,7 @@ CREATE TRIGGER on_insert_journal_lines
 
 -- Update the cached wallet balance whenever a journal line lands
 -- for a wallet-type ledger account.
-CREATE OR REPLACE FUNCTION private.on_journal_line_inserted_update_wallet_balance()
+CREATE OR REPLACE FUNCTION private.on_journal_lines_inserted()
 RETURNS TRIGGER AS $$
 BEGIN
     UPDATE public.wallets
@@ -208,20 +205,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
 
-CREATE TRIGGER on_journal_line_inserted
+CREATE TRIGGER on_journal_lines_inserted
     AFTER INSERT ON public.journal_lines
-    FOR EACH ROW EXECUTE FUNCTION private.on_journal_line_inserted_update_wallet_balance();
+    FOR EACH ROW EXECUTE FUNCTION private.on_journal_lines_inserted();
 
 -- ================================================================
 -- WALLET HOLDS  (temporary reservations)
---
--- Available balance = current_balance - SUM(active holds).
--- A hold is consumed when the corresponding transaction posts,
--- released when the reservation lapses, or expired by a cleanup job.
 -- ================================================================
 
 CREATE TABLE public.wallet_holds (
     id              BIGINT                    GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID                      NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     wallet_id       BIGINT                    NOT NULL REFERENCES public.wallets(id) ON DELETE RESTRICT,
     amount          NUMERIC(20,4)             NOT NULL CHECK (amount > 0),
     status          public.wallet_hold_status NOT NULL DEFAULT 'active',
@@ -236,12 +230,12 @@ CREATE TABLE public.wallet_holds (
 GRANT ALL ON TABLE public.wallet_holds TO authenticated, service_role;
 ALTER TABLE public.wallet_holds ENABLE ROW LEVEL SECURITY;
 
-CREATE INDEX idx_wallet_holds_wallet      ON public.wallet_holds(wallet_id);
-CREATE INDEX idx_wallet_holds_active      ON public.wallet_holds(wallet_id, status)
+CREATE INDEX idx_wallet_holds_wallet    ON public.wallet_holds(wallet_id);
+CREATE INDEX idx_wallet_holds_active    ON public.wallet_holds(wallet_id, status)
     WHERE status = 'active';
-CREATE INDEX idx_wallet_holds_reference   ON public.wallet_holds(reference_type, reference_id)
+CREATE INDEX idx_wallet_holds_reference ON public.wallet_holds(reference_type, reference_id)
     WHERE reference_id IS NOT NULL;
-CREATE INDEX idx_wallet_holds_expires     ON public.wallet_holds(expires_at)
+CREATE INDEX idx_wallet_holds_expires   ON public.wallet_holds(expires_at)
     WHERE status = 'active' AND expires_at IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION private.on_insert_wallet_holds()
@@ -260,8 +254,6 @@ CREATE TRIGGER on_insert_wallet_holds
 -- HELPER FUNCTIONS
 -- ================================================================
 
--- Verify balance and mark a journal entry as posted.
--- Raises if lines do not sum to zero (unbalanced entry).
 CREATE OR REPLACE FUNCTION private.post_journal_entry(p_entry_id BIGINT)
 RETURNS VOID AS $$
 DECLARE
@@ -287,7 +279,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
 REVOKE EXECUTE ON FUNCTION private.post_journal_entry(BIGINT) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION private.post_journal_entry(BIGINT) TO service_role;
 
--- Available balance = cached balance minus active holds.
 CREATE OR REPLACE FUNCTION private.wallet_available_balance(p_wallet_id BIGINT)
 RETURNS NUMERIC(20,4) AS $$
     SELECT
@@ -303,8 +294,6 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
 REVOKE EXECUTE ON FUNCTION private.wallet_available_balance(BIGINT) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION private.wallet_available_balance(BIGINT) TO service_role;
 
--- Reconcile cached balance against the actual ledger sum.
--- Returns only wallets where the cache has drifted.
 CREATE OR REPLACE FUNCTION private.verify_wallet_balances()
 RETURNS TABLE (
     wallet_id      BIGINT,
@@ -326,8 +315,6 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
 REVOKE EXECUTE ON FUNCTION private.verify_wallet_balances() FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION private.verify_wallet_balances() TO service_role;
 
--- Deposit into a wallet.
--- Lines: source_account -amount, wallet +amount. Net = 0.
 CREATE OR REPLACE FUNCTION private.deposit_to_wallet(
     p_wallet_id         BIGINT,
     p_amount            NUMERIC(20,4),
@@ -381,10 +368,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
 REVOKE EXECUTE ON FUNCTION private.deposit_to_wallet(BIGINT, NUMERIC, BIGINT, TEXT, TEXT, TEXT, BIGINT) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION private.deposit_to_wallet(BIGINT, NUMERIC, BIGINT, TEXT, TEXT, TEXT, BIGINT) TO service_role;
 
--- Spend from a wallet.
--- Acquires a row lock on the wallet to prevent concurrent overdraft.
--- Lines: wallet -amount, destination_account +amount. Net = 0.
--- Checks available_balance (current_balance - active holds) >= amount.
 CREATE OR REPLACE FUNCTION private.spend_from_wallet(
     p_wallet_id          BIGINT,
     p_amount             NUMERIC(20,4),
@@ -411,7 +394,6 @@ BEGIN
         IF FOUND THEN RETURN v_entry_id; END IF;
     END IF;
 
-    -- Row lock prevents concurrent overdraft
     SELECT w.current_balance
                - COALESCE((
                    SELECT SUM(h.amount)
@@ -453,8 +435,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
 REVOKE EXECUTE ON FUNCTION private.spend_from_wallet(BIGINT, NUMERIC, BIGINT, TEXT, TEXT, TEXT, BIGINT) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION private.spend_from_wallet(BIGINT, NUMERIC, BIGINT, TEXT, TEXT, TEXT, BIGINT) TO service_role;
 
--- Transfer between two wallets atomically.
--- Locks both rows in id order to avoid deadlocks.
 CREATE OR REPLACE FUNCTION private.transfer_between_wallets(
     p_from_wallet_id  BIGINT,
     p_to_wallet_id    BIGINT,
@@ -488,7 +468,6 @@ BEGIN
         IF FOUND THEN RETURN v_entry_id; END IF;
     END IF;
 
-    -- Always lock lower id first to prevent deadlocks
     v_lock_first  := LEAST(p_from_wallet_id, p_to_wallet_id);
     v_lock_second := GREATEST(p_from_wallet_id, p_to_wallet_id);
 
@@ -544,11 +523,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
 REVOKE EXECUTE ON FUNCTION private.transfer_between_wallets(BIGINT, BIGINT, NUMERIC, TEXT, TEXT, TEXT, BIGINT) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION private.transfer_between_wallets(BIGINT, BIGINT, NUMERIC, TEXT, TEXT, TEXT, BIGINT) TO service_role;
 
--- Convenience: own_wallet check used in RLS
 CREATE OR REPLACE FUNCTION private.owns_wallet(p_wallet_id BIGINT)
 RETURNS BOOLEAN AS $$
     SELECT EXISTS (
-        -- account-owned wallet
         SELECT 1
         FROM   public.wallets w
         JOIN   public.accounts a ON a.id = w.owner_id
@@ -556,12 +533,11 @@ RETURNS BOOLEAN AS $$
           AND  w.owner_type  = 'account'
           AND  a.user_id     = auth.uid()
         UNION ALL
-        -- org-owned wallet (any org member may view)
         SELECT 1
         FROM   public.wallets w
         WHERE  w.id         = p_wallet_id
           AND  w.owner_type = 'organization'
-          AND  private.is_org_member(w.owner_id)
+          AND  private.has_org_permission(w.owner_id, 'wallet.view')
     );
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
 
@@ -569,21 +545,16 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
 -- RLS POLICIES
 -- ================================================================
 
--- Ledger accounts are internal; authenticated users may read
--- active non-wallet accounts (for display purposes) but cannot write.
 CREATE POLICY "Authenticated users can read active system ledger accounts"
     ON public.ledger_accounts FOR SELECT
     TO authenticated
     USING (is_active = TRUE AND account_type <> 'wallet');
 
--- Wallets: owners can view their own wallets only.
 CREATE POLICY "Wallet owners can view their own wallets"
     ON public.wallets FOR SELECT
     TO authenticated
     USING (private.owns_wallet(id));
 
--- Journal entries and lines are internal audit records.
--- Authenticated users have no direct access; service_role bypasses RLS.
 CREATE POLICY "Wallet owners can view journal entries for their wallets"
     ON public.journal_entries FOR SELECT
     TO authenticated
@@ -609,7 +580,6 @@ CREATE POLICY "Wallet owners can view journal lines for their wallets"
         )
     );
 
--- Holds: wallet owners can view their own holds.
 CREATE POLICY "Wallet owners can view their own holds"
     ON public.wallet_holds FOR SELECT
     TO authenticated
@@ -617,10 +587,6 @@ CREATE POLICY "Wallet owners can view their own holds"
 
 -- ================================================================
 -- SEED: SYSTEM LEDGER ACCOUNTS
---
--- One row per well-known system account. These are referenced by
--- deposit_to_wallet / spend_from_wallet callers via their ids.
--- Add a currency variant for each currency you support.
 -- ================================================================
 
 INSERT INTO public.ledger_accounts (account_type, currency, name, description) VALUES
@@ -632,11 +598,6 @@ INSERT INTO public.ledger_accounts (account_type, currency, name, description) V
 
 -- ================================================================
 -- PUBLIC RPC WRAPPERS
---
--- PostgREST only exposes the public schema. These thin wrappers
--- delegate to private.* and inherit the same SECURITY DEFINER /
--- service_role-only access. Authenticated (non-service) callers
--- receive a permission-denied error.
 -- ================================================================
 
 CREATE OR REPLACE FUNCTION public.wallet_deposit(

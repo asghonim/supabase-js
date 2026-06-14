@@ -67,6 +67,7 @@ CREATE TYPE public.notification_recipient_status AS ENUM (
 
 CREATE TABLE public.notification_events (
     id               BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid              UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     type             TEXT        NOT NULL,   -- stable contract key: 'invoice.paid', 'comment.added'
     actor_account_id BIGINT      REFERENCES public.accounts(id)       ON DELETE SET NULL,
     entity_type      TEXT,                   -- 'invoice', 'campaign', 'comment'
@@ -76,6 +77,7 @@ CREATE TABLE public.notification_events (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 GRANT ALL ON TABLE public.notification_events TO authenticated, service_role;
+ALTER TABLE public.notification_events ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_notification_events_type
     ON public.notification_events(type, occurred_at DESC);
@@ -85,9 +87,10 @@ CREATE INDEX idx_notification_events_entity
 CREATE INDEX idx_notification_events_actor
     ON public.notification_events(actor_account_id)
     WHERE actor_account_id IS NOT NULL;
+
 CREATE OR REPLACE FUNCTION private.on_insert_notification_events() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_notification_events_inserted      BEFORE INSERT ON public.notification_events
-	FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_events();
+CREATE TRIGGER on_insert_notification_events BEFORE INSERT ON public.notification_events
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_events();
 
 
 -- ================================================================
@@ -100,6 +103,7 @@ CREATE TRIGGER on_notification_events_inserted      BEFORE INSERT ON public.noti
 
 CREATE TABLE public.notification_recipients (
     id         BIGINT                               GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid        UUID                                 NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     event_id   BIGINT                               NOT NULL REFERENCES public.notification_events(id) ON DELETE CASCADE,
     account_id BIGINT                               NOT NULL REFERENCES public.accounts(id)            ON DELETE CASCADE,
     status     public.notification_recipient_status NOT NULL DEFAULT 'pending',
@@ -107,13 +111,15 @@ CREATE TABLE public.notification_recipients (
     UNIQUE (event_id, account_id)
 );
 GRANT ALL ON TABLE public.notification_recipients TO authenticated, service_role;
+ALTER TABLE public.notification_recipients ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_notification_recipients_event
     ON public.notification_recipients(event_id);
 CREATE INDEX idx_notification_recipients_account
     ON public.notification_recipients(account_id, created_at DESC);
-CREATE OR REPLACE FUNCTION private.on_insert_notification_recipients()  RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_notification_recipients_inserted  BEFORE INSERT ON public.notification_recipients  FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_recipients();
+
+CREATE OR REPLACE FUNCTION private.on_insert_notification_recipients() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_notification_recipients BEFORE INSERT ON public.notification_recipients FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_recipients();
 
 
 -- ================================================================
@@ -129,19 +135,21 @@ CREATE TRIGGER on_notification_recipients_inserted  BEFORE INSERT ON public.noti
 
 CREATE TABLE public.notification_inbox (
     id           BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid          UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     recipient_id BIGINT      NOT NULL REFERENCES public.notification_recipients(id) ON DELETE CASCADE,
     account_id   BIGINT      NOT NULL REFERENCES public.accounts(id)                ON DELETE CASCADE,
-    title        TEXT        NOT NULL,
-    body         TEXT        NOT NULL,
-    image_url    TEXT,
-    action_url   TEXT,
-    group_key    TEXT,        -- e.g. 'post:55:likes' — for grouping N similar notifications
+    title        TEXT        NOT NULL CHECK (char_length(title) BETWEEN 1 AND 500),
+    body         TEXT        NOT NULL CHECK (char_length(body) BETWEEN 1 AND 10000),
+    image_url    TEXT        CHECK (char_length(image_url) <= 2048),
+    action_url   TEXT        CHECK (char_length(action_url) <= 2048),
+    group_key    TEXT        CHECK (char_length(group_key) <= 255),
     is_read      BOOLEAN     NOT NULL DEFAULT FALSE,
     read_at      TIMESTAMPTZ,
     archived_at  TIMESTAMPTZ,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 GRANT ALL ON TABLE public.notification_inbox TO authenticated, service_role;
+ALTER TABLE public.notification_inbox ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_notification_inbox_account
     ON public.notification_inbox(account_id, created_at DESC);
@@ -153,9 +161,10 @@ CREATE INDEX idx_notification_inbox_group
     WHERE group_key IS NOT NULL;
 CREATE INDEX idx_notification_inbox_recipient
     ON public.notification_inbox(recipient_id);
-CREATE OR REPLACE FUNCTION private.on_insert_notification_inbox()       RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_notification_inbox_inserted       BEFORE INSERT ON public.notification_inbox
-	FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_inbox();
+
+CREATE OR REPLACE FUNCTION private.on_insert_notification_inbox() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_notification_inbox BEFORE INSERT ON public.notification_inbox
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_inbox();
 
 
 -- ================================================================
@@ -167,21 +176,23 @@ CREATE TRIGGER on_notification_inbox_inserted       BEFORE INSERT ON public.noti
 
 CREATE TABLE public.notification_deliveries (
     id                  BIGINT                               GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                 UUID                                 NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     recipient_id        BIGINT                               NOT NULL REFERENCES public.notification_recipients(id) ON DELETE CASCADE,
     channel             public.notification_channel          NOT NULL,
     status              public.notification_delivery_status  NOT NULL DEFAULT 'pending',
-    provider            TEXT,             -- 'sendgrid', 'twilio', 'firebase', 'apns'
-    provider_message_id TEXT,
-    attempts            SMALLINT          NOT NULL DEFAULT 0,
+    provider            TEXT                                 CHECK (char_length(provider) <= 100),
+    provider_message_id TEXT                                 CHECK (char_length(provider_message_id) <= 255),
+    attempts            SMALLINT                             NOT NULL DEFAULT 0,
     last_attempt_at     TIMESTAMPTZ,
     sent_at             TIMESTAMPTZ,
     failed_at           TIMESTAMPTZ,
-    error_message       TEXT,
-    metadata            JSONB             NOT NULL DEFAULT '{}',
-    created_at          TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ       NOT NULL DEFAULT NOW()
+    error_message       TEXT                                 CHECK (char_length(error_message) <= 2000),
+    metadata            JSONB                                NOT NULL DEFAULT '{}',
+    created_at          TIMESTAMPTZ                          NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ                          NOT NULL DEFAULT NOW()
 );
 GRANT ALL ON TABLE public.notification_deliveries TO authenticated, service_role;
+ALTER TABLE public.notification_deliveries ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_notification_deliveries_recipient
     ON public.notification_deliveries(recipient_id);
@@ -191,13 +202,14 @@ CREATE INDEX idx_notification_deliveries_pending
 CREATE INDEX idx_notification_deliveries_channel_status
     ON public.notification_deliveries(channel, status);
 
+CREATE OR REPLACE FUNCTION private.on_insert_notification_deliveries() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_notification_deliveries BEFORE INSERT ON public.notification_deliveries FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_deliveries();
+
 CREATE OR REPLACE FUNCTION private.on_update_notification_delivery()
     RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_update_notification_delivery
     BEFORE UPDATE ON public.notification_deliveries
     FOR EACH ROW EXECUTE FUNCTION private.on_update_notification_delivery();
-CREATE OR REPLACE FUNCTION private.on_insert_notification_deliveries()  RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_notification_deliveries_inserted  BEFORE INSERT ON public.notification_deliveries  FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_deliveries();
 
 
 -- ================================================================
@@ -209,8 +221,9 @@ CREATE TRIGGER on_notification_deliveries_inserted  BEFORE INSERT ON public.noti
 
 CREATE TABLE public.notification_preferences (
     id                BIGINT                        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid               UUID                          NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     account_id        BIGINT                        NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
-    notification_type TEXT                          NOT NULL,
+    notification_type TEXT                          NOT NULL CHECK (char_length(notification_type) BETWEEN 1 AND 255),
     channel           public.notification_channel   NOT NULL,
     is_enabled        BOOLEAN                       NOT NULL DEFAULT TRUE,
     frequency         public.notification_frequency NOT NULL DEFAULT 'immediate',
@@ -219,19 +232,21 @@ CREATE TABLE public.notification_preferences (
     UNIQUE (account_id, notification_type, channel)
 );
 GRANT ALL ON TABLE public.notification_preferences TO authenticated, service_role;
+ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_notification_preferences_account
     ON public.notification_preferences(account_id);
 CREATE INDEX idx_notification_preferences_type
     ON public.notification_preferences(notification_type, channel);
 
+CREATE OR REPLACE FUNCTION private.on_insert_notification_preferences() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_notification_preferences BEFORE INSERT ON public.notification_preferences FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_preferences();
+
 CREATE OR REPLACE FUNCTION private.on_update_notification_preference()
     RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_update_notification_preference
     BEFORE UPDATE ON public.notification_preferences
     FOR EACH ROW EXECUTE FUNCTION private.on_update_notification_preference();
-CREATE OR REPLACE FUNCTION private.on_insert_notification_preferences() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_notification_preferences_inserted BEFORE INSERT ON public.notification_preferences FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_preferences();
 
 
 -- ================================================================
@@ -244,30 +259,33 @@ CREATE TRIGGER on_notification_preferences_inserted BEFORE INSERT ON public.noti
 
 CREATE TABLE public.notification_templates (
     id               BIGINT                      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    type             TEXT                        NOT NULL,
+    uid              UUID                        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    type             TEXT                        NOT NULL CHECK (char_length(type) BETWEEN 1 AND 255),
     channel          public.notification_channel NOT NULL,
     locale           CHAR(5)                     NOT NULL DEFAULT 'en',
-    subject_template TEXT,         -- email subject; NULL for non-email channels
-    body_template    TEXT          NOT NULL,
-    version          INTEGER       NOT NULL DEFAULT 1,
-    is_active        BOOLEAN       NOT NULL DEFAULT TRUE,
-    created_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    subject_template TEXT,
+    body_template    TEXT                        NOT NULL,
+    version          INTEGER                     NOT NULL DEFAULT 1,
+    is_active        BOOLEAN                     NOT NULL DEFAULT TRUE,
+    created_at       TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
     UNIQUE (type, channel, locale, version)
 );
 GRANT ALL ON TABLE public.notification_templates TO authenticated, service_role;
+ALTER TABLE public.notification_templates ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_notification_templates_lookup
     ON public.notification_templates(type, channel, locale)
     WHERE is_active = TRUE;
+
+CREATE OR REPLACE FUNCTION private.on_insert_notification_templates() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_notification_templates BEFORE INSERT ON public.notification_templates FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_templates();
 
 CREATE OR REPLACE FUNCTION private.on_update_notification_template()
     RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_update_notification_template
     BEFORE UPDATE ON public.notification_templates
     FOR EACH ROW EXECUTE FUNCTION private.on_update_notification_template();
-CREATE OR REPLACE FUNCTION private.on_insert_notification_templates()   RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_notification_templates_inserted   BEFORE INSERT ON public.notification_templates   FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_templates();
 
 
 -- ================================================================
@@ -280,6 +298,7 @@ CREATE TRIGGER on_notification_templates_inserted   BEFORE INSERT ON public.noti
 
 CREATE TABLE public.notification_digests (
     id            BIGINT                        GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid           UUID                          NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     account_id    BIGINT                        NOT NULL REFERENCES public.accounts(id)                ON DELETE CASCADE,
     recipient_id  BIGINT                        NOT NULL REFERENCES public.notification_recipients(id)  ON DELETE CASCADE,
     channel       public.notification_channel   NOT NULL,
@@ -289,24 +308,23 @@ CREATE TABLE public.notification_digests (
     created_at    TIMESTAMPTZ                   NOT NULL DEFAULT NOW()
 );
 GRANT ALL ON TABLE public.notification_digests TO authenticated, service_role;
+ALTER TABLE public.notification_digests ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX idx_notification_digests_account
     ON public.notification_digests(account_id, scheduled_for);
 CREATE INDEX idx_notification_digests_pending
     ON public.notification_digests(scheduled_for)
     WHERE sent_at IS NULL;
-CREATE OR REPLACE FUNCTION private.on_insert_notification_digests()     RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_notification_digests_inserted     BEFORE INSERT ON public.notification_digests
-	FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_digests();
+
+CREATE OR REPLACE FUNCTION private.on_insert_notification_digests() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_notification_digests BEFORE INSERT ON public.notification_digests
+    FOR EACH ROW EXECUTE FUNCTION private.on_insert_notification_digests();
 
 -- ================================================================
 -- ROW LEVEL SECURITY
 -- ================================================================
 
--- notification_events
--- Users see events where they are a recipient.
-ALTER TABLE public.notification_events ENABLE ROW LEVEL SECURITY;
-
+-- notification_events: users see events where they are a recipient.
 CREATE POLICY "Allow users to view notification events addressed to them"
     ON public.notification_events FOR SELECT
     TO authenticated
@@ -319,16 +337,10 @@ CREATE POLICY "Allow users to view notification events addressed to them"
         )
     );
 
--- notification_recipients
-ALTER TABLE public.notification_recipients ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Allow users to view their own recipient records"
     ON public.notification_recipients FOR SELECT
     TO authenticated
     USING (private.owns_account(account_id));
-
--- notification_inbox
-ALTER TABLE public.notification_inbox ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow users to view their own inbox"
     ON public.notification_inbox FOR SELECT
@@ -357,9 +369,6 @@ CREATE POLICY "Allow users to update their own inbox items"
         )
     );
 
--- notification_deliveries
-ALTER TABLE public.notification_deliveries ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Allow users to view their own delivery records"
     ON public.notification_deliveries FOR SELECT
     TO authenticated
@@ -371,25 +380,16 @@ CREATE POLICY "Allow users to view their own delivery records"
         )
     );
 
--- notification_preferences
-ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Allow users to manage their own preferences"
     ON public.notification_preferences FOR ALL
     TO authenticated
     USING    (private.owns_account(account_id))
     WITH CHECK (private.owns_account(account_id));
 
--- notification_templates (public catalog — any authenticated user can read)
-ALTER TABLE public.notification_templates ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Allow authenticated users to read active templates"
     ON public.notification_templates FOR SELECT
     TO authenticated
     USING (is_active = TRUE);
-
--- notification_digests
-ALTER TABLE public.notification_digests ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow users to view their own digest queue"
     ON public.notification_digests FOR SELECT
@@ -401,7 +401,6 @@ CREATE POLICY "Allow users to view their own digest queue"
 -- CONVENIENCE FUNCTIONS
 -- ================================================================
 
--- Mark a single inbox item as read.
 CREATE OR REPLACE FUNCTION public.mark_notification_read(p_inbox_id BIGINT)
 RETURNS VOID AS $$
 BEGIN
@@ -413,7 +412,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Mark all unarchived inbox items as read for the calling user.
 CREATE OR REPLACE FUNCTION public.mark_all_notifications_read()
 RETURNS VOID AS $$
 BEGIN
@@ -427,7 +425,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Archive a single inbox item (soft delete).
 CREATE OR REPLACE FUNCTION public.archive_notification(p_inbox_id BIGINT)
 RETURNS VOID AS $$
 BEGIN
@@ -439,7 +436,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
--- Unread count for the calling user (excludes archived).
 CREATE OR REPLACE FUNCTION public.unread_notification_count()
 RETURNS BIGINT AS $$
     SELECT COUNT(*)

@@ -15,16 +15,16 @@
         "destination": "supabase/migrations/20260000000003_accounts.sql"
       },
       {
-        "source": "supabase/migrations/20260000000004_api_keys.sql",
-        "destination": "supabase/migrations/20260000000004_api_keys.sql"
+        "source": "supabase/migrations/20260000000004_notifications.sql",
+        "destination": "supabase/migrations/20260000000004_notifications.sql"
       },
       {
-        "source": "supabase/migrations/20260000000005_notifications.sql",
-        "destination": "supabase/migrations/20260000000005_notifications.sql"
+        "source": "supabase/migrations/20260000000005_rbac.sql",
+        "destination": "supabase/migrations/20260000000005_rbac.sql"
       },
       {
-        "source": "supabase/migrations/20260000000006_rbac.sql",
-        "destination": "supabase/migrations/20260000000006_rbac.sql"
+        "source": "supabase/migrations/20260000000006_api_keys.sql",
+        "destination": "supabase/migrations/20260000000006_api_keys.sql"
       },
       {
         "source": "supabase/migrations/20260000000007_subscriptions.sql",

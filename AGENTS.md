@@ -24,3 +24,4 @@
 - Use `UNIQUE` constraints on natural keys (e.g., slug, email, key_hash)
 - Place all internal helper functions (permission checks, triggers, computation) in the `private` schema
 - Prefix all table and function references with the schema name, e.g., `public.accounts`, `private.check_org_membership()`
+- Every table must have at maximum one trigger for the same event (BEFORE INSERT, AFTER UPDATE, etc.). If you need to perform multiple actions on the same event, call other functions from within the main trigger function.
