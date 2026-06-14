@@ -60,25 +60,6 @@ RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql SET search_path = public, private;
 
 -- ================================================================
--- HELPER FUNCTIONS (used by RLS policies)
--- ================================================================
-
--- Resolves organization_id from a content_id
-CREATE OR REPLACE FUNCTION private.content_org_id(p_content_id BIGINT)
-RETURNS BIGINT AS $$
-    SELECT organization_id FROM public.contents WHERE id = p_content_id
-$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, private;
-
--- Resolves organization_id from a content_version_id
-CREATE OR REPLACE FUNCTION private.org_id_from_content_version(p_version_id BIGINT)
-RETURNS BIGINT AS $$
-    SELECT c.organization_id
-    FROM public.content_versions cv
-    JOIN public.contents c ON c.id = cv.content_id
-    WHERE cv.id = p_version_id
-$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, private;
-
--- ================================================================
 -- CONTENT TYPES
 -- ================================================================
 -- organization_id NULL  = system type visible to all orgs
@@ -178,6 +159,25 @@ CREATE TABLE public.content_blocks (
 );
 GRANT ALL ON TABLE public.content_blocks TO authenticated, service_role;
 CREATE INDEX idx_content_blocks_version ON public.content_blocks(content_version_id, block_order);
+
+-- ================================================================
+-- HELPER FUNCTIONS (used by RLS policies)
+-- ================================================================
+
+-- Resolves organization_id from a content_id
+CREATE OR REPLACE FUNCTION private.content_org_id(p_content_id BIGINT)
+RETURNS BIGINT AS $$
+    SELECT organization_id FROM public.contents WHERE id = p_content_id
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, private;
+
+-- Resolves organization_id from a content_version_id
+CREATE OR REPLACE FUNCTION private.org_id_from_content_version(p_version_id BIGINT)
+RETURNS BIGINT AS $$
+    SELECT c.organization_id
+    FROM public.content_versions cv
+    JOIN public.contents c ON c.id = cv.content_id
+    WHERE cv.id = p_version_id
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, private;
 
 -- ================================================================
 -- MEDIA FOLDERS

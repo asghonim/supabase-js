@@ -151,7 +151,7 @@ export function createContentDb(supabase: SupabaseClient<Database>) {
     ) {
       return supabase
         .from('content_versions')
-        .insert({ ...data, content_id: contentId })
+        .insert({ ...data, content_id: contentId, version_number: 0 })
         .select()
         .single()
     },

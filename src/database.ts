@@ -399,191 +399,44 @@ export type Database = {
         }
         Relationships: []
       }
-      conversation_participants: {
-        Row: {
-          account_id: number
-          conversation_id: number
-          created_at: string
-          id: number
-          joined_at: string
-          role: Database["public"]["Enums"]["conversation_participant_role"]
-          uid: string
-        }
-        Insert: {
-          account_id: number
-          conversation_id: number
-          created_at?: string
-          id?: never
-          joined_at?: string
-          role?: Database["public"]["Enums"]["conversation_participant_role"]
-          uid?: string
-        }
-        Update: {
-          account_id?: number
-          conversation_id?: number
-          created_at?: string
-          id?: never
-          joined_at?: string
-          role?: Database["public"]["Enums"]["conversation_participant_role"]
-          uid?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversation_participants_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversation_participants_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      conversation_reads: {
-        Row: {
-          account_id: number
-          conversation_id: number
-          created_at: string
-          id: number
-          last_read_at: string
-          last_read_message_id: number | null
-          last_read_message_number: number | null
-          uid: string
-        }
-        Insert: {
-          account_id: number
-          conversation_id: number
-          created_at?: string
-          id?: never
-          last_read_at?: string
-          last_read_message_id?: number | null
-          last_read_message_number?: number | null
-          uid?: string
-        }
-        Update: {
-          account_id?: number
-          conversation_id?: number
-          created_at?: string
-          id?: never
-          last_read_at?: string
-          last_read_message_id?: number | null
-          last_read_message_number?: number | null
-          uid?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversation_reads_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversation_reads_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversation_reads_last_read_message_id_fkey"
-            columns: ["last_read_message_id"]
-            isOneToOne: false
-            referencedRelation: "messages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      conversation_targets: {
-        Row: {
-          conversation_id: number
-          created_at: string
-          id: number
-          target_id: string
-          target_type: string
-          uid: string
-        }
-        Insert: {
-          conversation_id: number
-          created_at?: string
-          id?: never
-          target_id: string
-          target_type: string
-          uid?: string
-        }
-        Update: {
-          conversation_id?: number
-          created_at?: string
-          id?: never
-          target_id?: string
-          target_type?: string
-          uid?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversation_targets_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: true
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      conversations: {
+      categories: {
         Row: {
           created_at: string
-          created_by: number | null
           id: number
-          last_message_at: string | null
-          last_message_number: number | null
-          message_count: number
-          tenant_id: number | null
-          title: string | null
-          type: Database["public"]["Enums"]["conversation_type"]
-          uid: string
+          name: string
+          organization_id: number
+          parent_category_id: number | null
+          slug: string
         }
         Insert: {
           created_at?: string
-          created_by?: number | null
           id?: never
-          last_message_at?: string | null
-          last_message_number?: number | null
-          message_count?: number
-          tenant_id?: number | null
-          title?: string | null
-          type?: Database["public"]["Enums"]["conversation_type"]
-          uid?: string
+          name: string
+          organization_id: number
+          parent_category_id?: number | null
+          slug: string
         }
         Update: {
           created_at?: string
-          created_by?: number | null
           id?: never
-          last_message_at?: string | null
-          last_message_number?: number | null
-          message_count?: number
-          tenant_id?: number | null
-          title?: string | null
-          type?: Database["public"]["Enums"]["conversation_type"]
-          uid?: string
+          name?: string
+          organization_id?: number
+          parent_category_id?: number | null
+          slug?: string
         }
         Relationships: [
           {
-            foreignKeyName: "conversations_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_tenant_id_fkey"
-            columns: ["tenant_id"]
+            foreignKeyName: "categories_organization_id_fkey"
+            columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_parent_category_id_fkey"
+            columns: ["parent_category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
             referencedColumns: ["id"]
           },
         ]
@@ -892,7 +745,7 @@ export type Database = {
           seo_title?: string | null
           summary?: string | null
           title: string
-          version_number?: number
+          version_number: number
         }
         Update: {
           body_json?: Json
@@ -993,6 +846,195 @@ export type Database = {
             columns: ["published_version_id"]
             isOneToOne: false
             referencedRelation: "content_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_participants: {
+        Row: {
+          account_id: number
+          conversation_id: number
+          created_at: string
+          id: number
+          joined_at: string
+          role: Database["public"]["Enums"]["conversation_participant_role"]
+          uid: string
+        }
+        Insert: {
+          account_id: number
+          conversation_id: number
+          created_at?: string
+          id?: never
+          joined_at?: string
+          role?: Database["public"]["Enums"]["conversation_participant_role"]
+          uid?: string
+        }
+        Update: {
+          account_id?: number
+          conversation_id?: number
+          created_at?: string
+          id?: never
+          joined_at?: string
+          role?: Database["public"]["Enums"]["conversation_participant_role"]
+          uid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_reads: {
+        Row: {
+          account_id: number
+          conversation_id: number
+          created_at: string
+          id: number
+          last_read_at: string
+          last_read_message_id: number | null
+          last_read_message_number: number | null
+          uid: string
+        }
+        Insert: {
+          account_id: number
+          conversation_id: number
+          created_at?: string
+          id?: never
+          last_read_at?: string
+          last_read_message_id?: number | null
+          last_read_message_number?: number | null
+          uid?: string
+        }
+        Update: {
+          account_id?: number
+          conversation_id?: number
+          created_at?: string
+          id?: never
+          last_read_at?: string
+          last_read_message_id?: number | null
+          last_read_message_number?: number | null
+          uid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_reads_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_reads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_reads_last_read_message_id_fkey"
+            columns: ["last_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_targets: {
+        Row: {
+          conversation_id: number
+          created_at: string
+          id: number
+          target_id: string
+          target_type: string
+          uid: string
+        }
+        Insert: {
+          conversation_id: number
+          created_at?: string
+          id?: never
+          target_id: string
+          target_type: string
+          uid?: string
+        }
+        Update: {
+          conversation_id?: number
+          created_at?: string
+          id?: never
+          target_id?: string
+          target_type?: string
+          uid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_targets_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          created_by: number | null
+          id: number
+          last_message_at: string | null
+          last_message_number: number | null
+          message_count: number
+          tenant_id: number | null
+          title: string | null
+          type: Database["public"]["Enums"]["conversation_type"]
+          uid: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: number | null
+          id?: never
+          last_message_at?: string | null
+          last_message_number?: number | null
+          message_count?: number
+          tenant_id?: number | null
+          title?: string | null
+          type?: Database["public"]["Enums"]["conversation_type"]
+          uid?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: number | null
+          id?: never
+          last_message_at?: string | null
+          last_message_number?: number | null
+          message_count?: number
+          tenant_id?: number | null
+          title?: string | null
+          type?: Database["public"]["Enums"]["conversation_type"]
+          uid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1427,6 +1469,109 @@ export type Database = {
           uid?: string
         }
         Relationships: []
+      }
+      media: {
+        Row: {
+          created_at: string
+          created_by_account_id: number | null
+          filename: string
+          folder_id: number | null
+          height: number | null
+          id: number
+          mime_type: string
+          organization_id: number
+          size_bytes: number | null
+          storage_path: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by_account_id?: number | null
+          filename: string
+          folder_id?: number | null
+          height?: number | null
+          id?: never
+          mime_type: string
+          organization_id: number
+          size_bytes?: number | null
+          storage_path: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by_account_id?: number | null
+          filename?: string
+          folder_id?: number | null
+          height?: number | null
+          id?: never
+          mime_type?: string
+          organization_id?: number
+          size_bytes?: number | null
+          storage_path?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_created_by_account_id_fkey"
+            columns: ["created_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_folders: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+          organization_id: number
+          parent_folder_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          name: string
+          organization_id: number
+          parent_folder_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          name?: string
+          organization_id?: number
+          parent_folder_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_folders_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_folders_parent_folder_id_fkey"
+            columns: ["parent_folder_id"]
+            isOneToOne: false
+            referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       message_attachments: {
         Row: {
@@ -3005,6 +3150,38 @@ export type Database = {
           },
         ]
       }
+      tags: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+          organization_id: number
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          name: string
+          organization_id: number
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          name?: string
+          organization_id?: number
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           assigned_to_account_id: number | null
@@ -3351,10 +3528,10 @@ export type Database = {
       }
       wallet_create: {
         Args: {
-          p_owner_type: Database["public"]["Enums"]["wallet_owner_type"]
-          p_owner_id: number
           p_currency?: string
-          p_name?: string | null
+          p_name?: string
+          p_owner_id: number
+          p_owner_type: Database["public"]["Enums"]["wallet_owner_type"]
         }
         Returns: number
       }
