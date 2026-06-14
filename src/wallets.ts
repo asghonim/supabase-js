@@ -96,33 +96,16 @@ export function createAdminWalletsDb(supabase: SupabaseClient<Database>) {
       currency = 'USD',
       name?: string,
     ): Promise<{ data: WalletRow | null; error: unknown }> {
-      const accountName = name ?? `${ownerType}:${ownerId} wallet (${currency})`
+      const { data: walletId, error } = await supabase.rpc('wallet_create', {
+        p_owner_type: ownerType,
+        p_owner_id:   ownerId,
+        p_currency:   currency,
+        p_name:       name ?? null,
+      })
 
-      const { data: ledger, error: ledgerErr } = await supabase
-        .from('ledger_accounts')
-        .insert({ account_type: 'wallet', currency, name: accountName })
-        .select('id')
-        .single()
+      if (error || walletId == null) return { data: null, error }
 
-      if (ledgerErr || !ledger) return { data: null, error: ledgerErr }
-
-      const { data: wallet, error: walletErr } = await supabase
-        .from('wallets')
-        .insert({
-          owner_type:        ownerType,
-          owner_id:          ownerId,
-          currency,
-          ledger_account_id: ledger.id,
-        })
-        .select()
-        .single()
-
-      if (walletErr) {
-        await supabase.from('ledger_accounts').delete().eq('id', ledger.id)
-        return { data: null, error: walletErr }
-      }
-
-      return { data: wallet, error: null }
+      return supabase.from('wallets').select('*').eq('id', walletId).single()
     },
 
     getWallet(id: number) {
@@ -258,7 +241,7 @@ export function createAdminWalletsDb(supabase: SupabaseClient<Database>) {
     updateHoldStatus(holdId: number, status: Exclude<WalletHoldStatus, 'active'>) {
       return supabase
         .from('wallet_holds')
-        .update({ status, released_at: new Date().toISOString() })
+        .update({ status })
         .eq('id', holdId)
         .eq('status', 'active' satisfies WalletHoldStatus)
         .select()

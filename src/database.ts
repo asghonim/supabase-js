@@ -2886,6 +2886,15 @@ export type Database = {
         Args: { p_wallet_id: number }
         Returns: number
       }
+      wallet_create: {
+        Args: {
+          p_owner_type: Database["public"]["Enums"]["wallet_owner_type"]
+          p_owner_id: number
+          p_currency?: string
+          p_name?: string | null
+        }
+        Returns: number
+      }
       wallet_deposit: {
         Args: {
           p_amount: number

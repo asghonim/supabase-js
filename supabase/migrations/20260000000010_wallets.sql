@@ -250,6 +250,20 @@ CREATE TRIGGER on_insert_wallet_holds
     BEFORE INSERT ON public.wallet_holds
     FOR EACH ROW EXECUTE FUNCTION private.on_insert_wallet_holds();
 
+CREATE OR REPLACE FUNCTION private.on_update_wallet_holds()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.status = 'active' AND NEW.status <> 'active' AND NEW.released_at IS NULL THEN
+        NEW.released_at = NOW();
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+
+CREATE TRIGGER on_update_wallet_holds
+    BEFORE UPDATE ON public.wallet_holds
+    FOR EACH ROW EXECUTE FUNCTION private.on_update_wallet_holds();
+
 -- ================================================================
 -- HELPER FUNCTIONS
 -- ================================================================
@@ -673,3 +687,52 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
 
 REVOKE EXECUTE ON FUNCTION public.wallet_available_balance(BIGINT) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION public.wallet_available_balance(BIGINT) TO service_role;
+
+-- ================================================================
+-- ATOMIC WALLET PROVISIONING
+-- ================================================================
+
+CREATE OR REPLACE FUNCTION private.create_wallet(
+    p_owner_type public.wallet_owner_type,
+    p_owner_id   BIGINT,
+    p_currency   CHAR(3) DEFAULT 'USD',
+    p_name       TEXT    DEFAULT NULL
+)
+RETURNS BIGINT AS $$
+DECLARE
+    v_name      TEXT;
+    v_ledger_id BIGINT;
+    v_wallet_id BIGINT;
+BEGIN
+    v_name := COALESCE(
+        p_name,
+        p_owner_type::text || ':' || p_owner_id::text || ' wallet (' || p_currency || ')'
+    );
+
+    INSERT INTO public.ledger_accounts (account_type, currency, name)
+    VALUES ('wallet', p_currency, v_name)
+    RETURNING id INTO v_ledger_id;
+
+    INSERT INTO public.wallets (owner_type, owner_id, currency, ledger_account_id)
+    VALUES (p_owner_type, p_owner_id, p_currency, v_ledger_id)
+    RETURNING id INTO v_wallet_id;
+
+    RETURN v_wallet_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
+
+REVOKE EXECUTE ON FUNCTION private.create_wallet(public.wallet_owner_type, BIGINT, CHAR, TEXT) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION private.create_wallet(public.wallet_owner_type, BIGINT, CHAR, TEXT) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.wallet_create(
+    p_owner_type public.wallet_owner_type,
+    p_owner_id   BIGINT,
+    p_currency   CHAR(3) DEFAULT 'USD',
+    p_name       TEXT    DEFAULT NULL
+)
+RETURNS BIGINT AS $$
+    SELECT private.create_wallet(p_owner_type, p_owner_id, p_currency, p_name);
+$$ LANGUAGE sql SECURITY DEFINER SET search_path = public, private;
+
+REVOKE EXECUTE ON FUNCTION public.wallet_create(public.wallet_owner_type, BIGINT, CHAR, TEXT) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.wallet_create(public.wallet_owner_type, BIGINT, CHAR, TEXT) TO service_role;

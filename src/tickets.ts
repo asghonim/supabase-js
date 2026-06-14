@@ -33,14 +33,10 @@ export function createTicketDb(supabase: SupabaseClient<Database>) {
       return supabase.from('tickets').select('*').eq('id', id).single()
     },
 
-    updateStatus(
-      id: number,
-      status: TicketStatus,
-      extra?: Partial<Pick<TicketInsert, 'resolved_at' | 'first_response_at'>>,
-    ) {
+    updateStatus(id: number, status: TicketStatus) {
       return supabase
         .from('tickets')
-        .update({ status, ...extra })
+        .update({ status })
         .eq('id', id)
         .select()
         .single()

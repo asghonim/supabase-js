@@ -56,6 +56,29 @@ CREATE INDEX idx_tickets_subject_fts ON public.tickets USING gin(coalesce(subjec
 CREATE OR REPLACE FUNCTION private.on_insert_tickets() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER on_insert_tickets BEFORE INSERT ON public.tickets FOR EACH ROW EXECUTE FUNCTION private.on_insert_tickets();
 
+CREATE OR REPLACE FUNCTION private.on_update_tickets()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.status = 'new' AND NEW.status <> 'new' AND NEW.first_response_at IS NULL THEN
+        NEW.first_response_at = NOW();
+    END IF;
+
+    IF NEW.status IN ('resolved', 'closed') AND NEW.resolved_at IS NULL THEN
+        NEW.resolved_at = NOW();
+    END IF;
+
+    IF OLD.status IN ('resolved', 'closed') AND NEW.status NOT IN ('resolved', 'closed') THEN
+        NEW.resolved_at = NULL;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SET search_path = public, private;
+
+CREATE TRIGGER on_update_tickets
+    BEFORE UPDATE ON public.tickets
+    FOR EACH ROW EXECUTE FUNCTION private.on_update_tickets();
+
 CREATE POLICY "Allow users to view own tickets"
     ON public.tickets FOR SELECT
     TO authenticated
