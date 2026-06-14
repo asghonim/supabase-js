@@ -10,7 +10,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createTestUser, deleteTestUser, type TestUser } from './helpers'
+import { admin, createTestUser, deleteTestUser, uniqueSlug, type TestUser } from './helpers'
 import { createPlansDb } from './plans'
 
 // ── plans RLS ─────────────────────────────────────────────────────────────────
@@ -232,5 +232,80 @@ describe('plans — listEntitlementsForVersion', () => {
     for (const ent of data!) {
       expect(ent).toHaveProperty('features')
     }
+  })
+})
+
+// ── seeded-data coverage (admin client, no test user needed) ──────────────────
+
+describe('createPlansDb — seeded data coverage', () => {
+  const adminDb = createPlansDb(admin)
+  let planId: number
+  let planVersionId: number
+  let planSlug: string
+
+  beforeAll(async () => {
+    planSlug = uniqueSlug('cov-plan')
+    const { data: plan, error: planErr } = await admin
+      .from('plans')
+      .insert({ name: 'Coverage Plan', slug: planSlug, is_active: true, is_public: true })
+      .select('id')
+      .single()
+    if (!plan) throw new Error(`plan insert failed: ${planErr?.message}`)
+    planId = plan.id
+
+    const { data: pv, error: pvErr } = await admin
+      .from('plan_versions')
+      .insert({ plan_id: planId, version_number: 1, price_amount: 0, is_active: true })
+      .select('id')
+      .single()
+    if (!pv) throw new Error(`plan_version insert failed: ${pvErr?.message}`)
+    planVersionId = pv.id
+  })
+
+  afterAll(async () => {
+    await admin.from('plan_versions').delete().eq('id', planVersionId)
+    await admin.from('plans').delete().eq('id', planId)
+  })
+
+  it('getById returns the plan with its versions', async () => {
+    const { data, error } = await adminDb.getById(planId)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(planId)
+    expect(Array.isArray(data!.plan_versions)).toBe(true)
+  })
+
+  it('getBySlug returns the plan by slug', async () => {
+    const { data, error } = await adminDb.getBySlug(planSlug)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(planId)
+  })
+
+  it('getActiveVersion returns the active version for the plan', async () => {
+    const { data, error } = await adminDb.getActiveVersion(planId)
+    expect(error).toBeNull()
+    expect(data!.plan_id).toBe(planId)
+    expect(data!.is_active).toBe(true)
+  })
+
+  it('getVersionById returns the version with its parent plan', async () => {
+    const { data, error } = await adminDb.getVersionById(planVersionId)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(planVersionId)
+    expect(data!.plans).toBeTruthy()
+  })
+
+  it('getVersionByProviderId returns the version by billing_provider_price_id', async () => {
+    const providerId = `cov-plan-provider-${Date.now()}`
+    await admin.from('plan_versions').update({ billing_provider_price_id: providerId }).eq('id', planVersionId)
+
+    const { data, error } = await adminDb.getVersionByProviderId(providerId)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(planVersionId)
+  })
+
+  it('listEntitlementsForVersion returns an array (empty if none)', async () => {
+    const { data, error } = await adminDb.listEntitlementsForVersion(planVersionId)
+    expect(error).toBeNull()
+    expect(Array.isArray(data)).toBe(true)
   })
 })

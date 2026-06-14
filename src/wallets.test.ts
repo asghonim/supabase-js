@@ -403,3 +403,130 @@ describe('admin wallet management', () => {
     expect(data!.account_type).toBe('bank')
   })
 })
+
+// ── createWalletsDb.getWallet (user-facing) ───────────────────────────────────
+
+describe('createWalletsDb — getWallet', () => {
+  let owner: TestUser
+  let walletId: number
+
+  beforeAll(async () => {
+    owner = await createTestUser('wallet-get-owner')
+    const adminDb = createAdminWalletsDb(admin)
+    const { data: wallet } = await adminDb.createWallet('account', owner.accountId, 'USD')
+    if (!wallet) throw new Error('failed to create test wallet')
+    walletId = wallet.id
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(owner.id)
+  })
+
+  it('owner can retrieve their wallet by id', async () => {
+    const db = createWalletsDb(owner.client)
+    const { data, error } = await db.getWallet(walletId)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(walletId)
+    expect(data!.owner_id).toBe(owner.accountId)
+  })
+})
+
+// ── createAdminWalletsDb — extra methods ──────────────────────────────────────
+
+describe('createAdminWalletsDb — getWalletByOwner / listLedgerAccounts / listJournalLines / listHolds', () => {
+  let user: TestUser
+  let adminDb: ReturnType<typeof createAdminWalletsDb>
+  let walletId: number
+  let bankAccountId: number
+
+  beforeAll(async () => {
+    user = await createTestUser('wallet-admin-extra')
+    adminDb = createAdminWalletsDb(admin)
+
+    const { data: wallet } = await adminDb.createWallet('account', user.accountId, 'USD')
+    if (!wallet) throw new Error('failed to create wallet')
+    walletId = wallet.id
+
+    const { data: bank } = await admin
+      .from('ledger_accounts')
+      .select('id')
+      .eq('name', 'Bank (USD)')
+      .eq('currency', 'USD')
+      .single()
+    bankAccountId = bank!.id
+
+    await adminDb.deposit(walletId, 200, bankAccountId, 'Fund for admin extra tests',
+      { idempotencyKey: `admin-extra-fund-${Date.now()}` })
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(user.id)
+  })
+
+  it('getWalletByOwner (admin) finds the wallet by owner', async () => {
+    const { data, error } = await adminDb.getWalletByOwner('account', user.accountId, 'USD')
+    expect(error).toBeNull()
+    expect(data!.owner_id).toBe(user.accountId)
+    expect(data!.currency).toBe('USD')
+  })
+
+  it('listLedgerAccounts returns active accounts', async () => {
+    const { data, error } = await adminDb.listLedgerAccounts()
+    expect(error).toBeNull()
+    expect(Array.isArray(data)).toBe(true)
+    expect(data!.length).toBeGreaterThan(0)
+  })
+
+  it('listLedgerAccounts can filter by currency', async () => {
+    const { data, error } = await adminDb.listLedgerAccounts({ currency: 'USD' })
+    expect(error).toBeNull()
+    expect(data!.every(a => a.currency === 'USD')).toBe(true)
+  })
+
+  it('listLedgerAccounts can filter by type', async () => {
+    const { data, error } = await adminDb.listLedgerAccounts({ type: 'bank' })
+    expect(error).toBeNull()
+    expect(data!.every(a => a.account_type === 'bank')).toBe(true)
+  })
+
+  it('listJournalLines (admin) returns lines after a deposit', async () => {
+    const { data, error } = await adminDb.listJournalLines(walletId)
+    expect(error).toBeNull()
+    expect(Array.isArray(data)).toBe(true)
+    expect(data!.length).toBeGreaterThan(0)
+  })
+
+  it('listJournalLines (admin) respects limit option', async () => {
+    const { data, error } = await adminDb.listJournalLines(walletId, { limit: 1 })
+    expect(error).toBeNull()
+    expect(data!.length).toBeLessThanOrEqual(1)
+  })
+
+  it('listJournalLines (admin) respects before option', async () => {
+    const { data, error } = await adminDb.listJournalLines(walletId, { before: new Date().toISOString() })
+    expect(error).toBeNull()
+    expect(Array.isArray(data)).toBe(true)
+  })
+
+  it('listHolds (admin) returns all holds for a wallet', async () => {
+    const { data: hold } = await adminDb.createHold(walletId, 10, 'Test list hold')
+    const { data, error } = await adminDb.listHolds(walletId)
+    expect(error).toBeNull()
+    expect(data!.some(h => h.id === hold!.id)).toBe(true)
+    await adminDb.updateHoldStatus(hold!.id, 'released')
+  })
+
+  it('listHolds can filter by status', async () => {
+    const { data: hold } = await adminDb.createHold(walletId, 5, 'Status filter hold')
+    const { data, error } = await adminDb.listHolds(walletId, { status: 'active' })
+    expect(error).toBeNull()
+    expect(data!.every(h => h.status === 'active')).toBe(true)
+    await adminDb.updateHoldStatus(hold!.id, 'released')
+  })
+
+  it('listHolds can limit results', async () => {
+    const { data, error } = await adminDb.listHolds(walletId, { limit: 1 })
+    expect(error).toBeNull()
+    expect(data!.length).toBeLessThanOrEqual(1)
+  })
+})

@@ -620,3 +620,138 @@ describe('createCommentsDb', () => {
     })
   })
 })
+
+// ── createCommentsDb — additional method coverage ─────────────────────────────
+
+describe('createCommentsDb — additional methods', () => {
+  let userA: TestUser
+  const adminDb = createCommentsDb(admin)
+
+  beforeAll(async () => {
+    userA = await createTestUser('cdb-extra-a')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+  })
+
+  it('getConversation returns the conversation by id', async () => {
+    const conv = await adminDb.createConversation({ type: 'group', title: 'Get Me' })
+    const { data, error } = await adminDb.getConversation(conv.data!.id)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(conv.data!.id)
+    expect(data!.title).toBe('Get Me')
+  })
+
+  it('updateConversation updates the title', async () => {
+    const conv = await adminDb.createConversation({ type: 'group', title: 'Original' })
+    const { data, error } = await adminDb.updateConversation(conv.data!.id, { title: 'Updated' })
+    expect(error).toBeNull()
+    expect(data!.title).toBe('Updated')
+  })
+
+  it('deleteConversation removes the conversation', async () => {
+    const conv = await adminDb.createConversation({ type: 'group' })
+    const { error } = await adminDb.deleteConversation(conv.data!.id)
+    expect(error).toBeNull()
+  })
+
+  it('addParticipant and listParticipants round-trip', async () => {
+    const conv = await adminDb.createConversation({ type: 'group' })
+    const { data, error } = await adminDb.addParticipant({
+      conversation_id: conv.data!.id,
+      account_id:      userA.accountId,
+      role:            'member',
+    })
+    expect(error).toBeNull()
+    expect(data!.account_id).toBe(userA.accountId)
+
+    const { data: list, error: listErr } = await adminDb.listParticipants(conv.data!.id)
+    expect(listErr).toBeNull()
+    expect(list!.some(p => p.account_id === userA.accountId)).toBe(true)
+  })
+
+  it('updateParticipantRole changes the role', async () => {
+    const conv = await adminDb.createConversation({ type: 'group' })
+    await adminDb.addParticipant({ conversation_id: conv.data!.id, account_id: userA.accountId, role: 'member' })
+
+    const { data, error } = await adminDb.updateParticipantRole(conv.data!.id, userA.accountId, 'admin')
+    expect(error).toBeNull()
+    expect(data!.role).toBe('admin')
+  })
+
+  it('removeParticipant removes them from the conversation', async () => {
+    const conv = await adminDb.createConversation({ type: 'group' })
+    await adminDb.addParticipant({ conversation_id: conv.data!.id, account_id: userA.accountId, role: 'member' })
+
+    const { error } = await adminDb.removeParticipant(conv.data!.id, userA.accountId)
+    expect(error).toBeNull()
+
+    const { data: list } = await adminDb.listParticipants(conv.data!.id)
+    expect(list!.some(p => p.account_id === userA.accountId)).toBe(false)
+  })
+
+  it('getTarget returns the target linked to a conversation', async () => {
+    const conv = await adminDb.createConversation({ type: 'comments' })
+    await adminDb.setTarget({ conversation_id: conv.data!.id, target_type: 'article', target_id: '99' })
+
+    const { data, error } = await adminDb.getTarget(conv.data!.id)
+    expect(error).toBeNull()
+    expect(data!.target_type).toBe('article')
+    expect(data!.target_id).toBe('99')
+  })
+
+  it('getMessage returns a single message by id', async () => {
+    const conv = await adminDb.createConversation({ type: 'group' })
+    const msg = await adminDb.sendMessage({
+      conversation_id: conv.data!.id,
+      sender_id:       userA.accountId,
+      body:            'Find me',
+    })
+
+    const { data, error } = await adminDb.getMessage(msg.data!.id)
+    expect(error).toBeNull()
+    expect(data!.id).toBe(msg.data!.id)
+    expect(data!.body).toBe('Find me')
+  })
+
+  it('listMessages respects the limit option', async () => {
+    const conv = await adminDb.createConversation({ type: 'group' })
+    await adminDb.sendMessage({ conversation_id: conv.data!.id, sender_id: userA.accountId, body: 'a' })
+    await adminDb.sendMessage({ conversation_id: conv.data!.id, sender_id: userA.accountId, body: 'b' })
+    await adminDb.sendMessage({ conversation_id: conv.data!.id, sender_id: userA.accountId, body: 'c' })
+
+    const { data, error } = await adminDb.listMessages(conv.data!.id, { limit: 2 })
+    expect(error).toBeNull()
+    expect(data!.length).toBeLessThanOrEqual(2)
+  })
+
+  it('addAttachment, listAttachments, and removeAttachment round-trip', async () => {
+    const conv = await adminDb.createConversation({ type: 'group' })
+    const msg = await adminDb.sendMessage({
+      conversation_id: conv.data!.id,
+      sender_id:       userA.accountId,
+      body:            'With attachment',
+    })
+
+    const { data: att, error: addErr } = await adminDb.addAttachment({
+      message_id:   msg.data!.id,
+      storage_key:  'uploads/test.txt',
+      file_name:    'test.txt',
+      content_type: 'text/plain',
+      size:         100,
+    })
+    expect(addErr).toBeNull()
+    expect(att!.message_id).toBe(msg.data!.id)
+
+    const { data: list, error: listErr } = await adminDb.listAttachments(msg.data!.id)
+    expect(listErr).toBeNull()
+    expect(list!.some(a => a.id === att!.id)).toBe(true)
+
+    const { error: removeErr } = await adminDb.removeAttachment(att!.id)
+    expect(removeErr).toBeNull()
+
+    const { data: after } = await adminDb.listAttachments(msg.data!.id)
+    expect(after!.some(a => a.id === att!.id)).toBe(false)
+  })
+})

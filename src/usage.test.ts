@@ -324,6 +324,105 @@ describe('usage_records — subscription_id trigger resolution', () => {
   })
 })
 
+// ── usage_records — subscriptionId filter ────────────────────────────────────
+
+describe('usage_records — listRecords subscriptionId filter', () => {
+  let member: TestUser
+  let org: TestOrg
+  let subscriptionId: number
+  let planId: number
+  let planVersionId: number
+  let recordId: number | null = null
+
+  beforeAll(async () => {
+    member = await createTestUser('usage-sub-filter')
+    org = await createTestOrg(member.accountId, uniqueSlug('usage-sub-filter'))
+    await addOrgMember(org.id, member.accountId, 'member')
+
+    const { data: plan } = await admin
+      .from('plans')
+      .insert({ name: 'Usage Filter Plan', slug: uniqueSlug('usage-filter-plan') })
+      .select('id')
+      .single()
+    planId = plan!.id
+
+    const { data: pv } = await admin
+      .from('plan_versions')
+      .insert({ plan_id: planId, version_number: 1, price_amount: 0 })
+      .select('id')
+      .single()
+    planVersionId = pv!.id
+
+    const { data: sub } = await admin
+      .from('subscriptions')
+      .insert({ organization_id: org.id, plan_version_id: planVersionId, status: 'active' })
+      .select('id')
+      .single()
+    subscriptionId = sub!.id
+
+    const { data: rec } = await admin
+      .from('usage_records')
+      .insert({
+        organization_id: org.id,
+        subscription_id: subscriptionId,
+        feature_key:     `test.sub.filter.${Date.now()}`,
+        quantity:        1,
+        period_start:    '2026-01-01',
+        period_end:      '2026-01-31',
+      })
+      .select('id')
+      .single()
+    recordId = rec?.id ?? null
+  })
+
+  afterAll(async () => {
+    if (recordId) await admin.from('usage_records').delete().eq('id', recordId)
+    await admin.from('subscriptions').delete().eq('id', subscriptionId)
+    await admin.from('plan_versions').delete().eq('id', planVersionId)
+    await admin.from('plans').delete().eq('id', planId)
+    await deleteTestUser(member.id)
+  })
+
+  it('listRecords can filter by subscriptionId', async () => {
+    if (!recordId) return
+    const db = createUsageDb(member.client)
+    const { data, error } = await db.listRecords(org.id, { subscriptionId })
+    expect(error).toBeNull()
+    expect(data!.every(r => r.subscription_id === subscriptionId)).toBe(true)
+    expect(data!.some(r => r.id === recordId)).toBe(true)
+  })
+
+  it('listSummaries can filter by subscriptionId', async () => {
+    const db = createUsageDb(member.client)
+    const { data, error } = await db.listSummaries(org.id, { subscriptionId })
+    expect(error).toBeNull()
+    expect(Array.isArray(data)).toBe(true)
+    expect(data!.every(s => s.subscription_id === subscriptionId)).toBe(true)
+  })
+
+  it('listSummaries can filter by featureKey', async () => {
+    const db = createUsageDb(member.client)
+    const { data, error } = await db.listSummaries(org.id, { featureKey: 'nonexistent.feature' })
+    expect(error).toBeNull()
+    expect(Array.isArray(data)).toBe(true)
+    expect(data!.every(s => s.feature_key === 'nonexistent.feature')).toBe(true)
+  })
+
+  it('listSummaries can filter by periodStart', async () => {
+    const db = createUsageDb(member.client)
+    const { data, error } = await db.listSummaries(org.id, { periodStart: '2026-01-01' })
+    expect(error).toBeNull()
+    expect(data!.every(s => (s.period_start ?? '') >= '2026-01-01')).toBe(true)
+  })
+
+  it('listSummaries can filter by periodEnd', async () => {
+    const db = createUsageDb(member.client)
+    const { data, error } = await db.listSummaries(org.id, { periodEnd: '2026-01-31' })
+    expect(error).toBeNull()
+    expect(data!.every(s => (s.period_end ?? '').slice(0, 10) <= '2026-01-31')).toBe(true)
+  })
+})
+
 // ── usage_summaries RLS ───────────────────────────────────────────────────────
 
 describe('usage_summaries — listSummaries RLS', () => {

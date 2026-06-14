@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { addCommand, copyTemplate } from './add.js'
+import { addCommand, copyTemplate, loadManifest } from './add.js'
 
 const tempDirectories: string[] = []
 
@@ -51,6 +51,61 @@ describe('add command', () => {
 
     copyTemplate('supabase', cwd, { overwrite: true })
     expect(readFileSync(path.join(cwd, 'supabase/migrations/20260000000003_accounts.sql'), 'utf8')).not.toBe('// existing file\n')
+  })
+})
+
+describe('loadManifest', () => {
+  it('returns an object with known template keys', () => {
+    const manifest = loadManifest()
+    expect(typeof manifest).toBe('object')
+    expect(manifest).toHaveProperty('supabase')
+  })
+
+  it('supabase template has a non-empty files array', () => {
+    const manifest = loadManifest()
+    expect(Array.isArray(manifest.supabase.files)).toBe(true)
+    expect(manifest.supabase.files.length).toBeGreaterThan(0)
+  })
+})
+
+describe('addCommand — stdout output', () => {
+  it('writes each generated file to stdout on success', async () => {
+    const cwd = createTempDirectory()
+    const lines: string[] = []
+    const origWrite = process.stdout.write.bind(process.stdout)
+    process.stdout.write = (chunk: unknown) => { lines.push(String(chunk)); return true }
+
+    try {
+      await addCommand('supabase', cwd, { confirm: async () => { throw new Error('should not prompt') } })
+    } finally {
+      process.stdout.write = origWrite
+    }
+
+    const output = lines.join('')
+    expect(output).toContain('Added template')
+    expect(output).toContain('supabase')
+    expect(output).toMatch(/- /)
+  })
+
+  it('writes conflict list and abort message when user declines', async () => {
+    const cwd = createTempDirectory()
+    const dir = path.join(cwd, 'supabase/migrations')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(path.join(dir, '20260000000003_accounts.sql'), '// existing\n')
+
+    const lines: string[] = []
+    const origWrite = process.stdout.write.bind(process.stdout)
+    process.stdout.write = (chunk: unknown) => { lines.push(String(chunk)); return true }
+
+    try {
+      await addCommand('supabase', cwd, { confirm: async () => false })
+    } finally {
+      process.stdout.write = origWrite
+    }
+
+    const output = lines.join('')
+    expect(output).toContain('already exist')
+    expect(output).toContain('Aborted')
   })
 })
 
