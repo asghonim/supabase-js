@@ -29,12 +29,12 @@ export function createTicketDb(supabase: SupabaseClient<Database>) {
       return q
     },
 
-    get(id: string) {
+    get(id: number) {
       return supabase.from('tickets').select('*').eq('id', id).single()
     },
 
     updateStatus(
-      id: string,
+      id: number,
       status: TicketStatus,
       extra?: Partial<Pick<TicketInsert, 'resolved_at' | 'first_response_at'>>,
     ) {
@@ -46,7 +46,7 @@ export function createTicketDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    assignTo(id: string, accountId: number | null) {
+    assignTo(id: number, accountId: number | null) {
       return supabase
         .from('tickets')
         .update({ assigned_to_account_id: accountId })

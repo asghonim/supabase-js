@@ -286,6 +286,25 @@ describe('transfer', () => {
     expect(error).not.toBeNull()
     expect(error!.message).toMatch(/insufficient balance/i)
   })
+
+  it('transfer is rejected when wallets have different currencies', async () => {
+    const userC   = await createTestUser('wallet-transfer-c')
+    const adminDb2 = createAdminWalletsDb(admin)
+
+    try {
+      const { data: wUsd } = await adminDb2.createWallet('account', userC.accountId, 'USD')
+      const { data: wEur } = await adminDb2.createWallet('account', userC.accountId, 'EUR')
+      if (!wUsd || !wEur) throw new Error('failed to create test wallets')
+
+      await adminDb2.deposit(wUsd.id, 50, bankAccountId, 'Fund USD for cross-currency test')
+
+      const { error } = await adminDb2.transfer(wUsd.id, wEur.id, 10, 'Cross-currency should fail')
+      expect(error).not.toBeNull()
+      expect(error!.message).toMatch(/currency mismatch/i)
+    } finally {
+      await deleteTestUser(userC.id)
+    }
+  })
 })
 
 // ── available balance & holds ─────────────────────────────────────────────────

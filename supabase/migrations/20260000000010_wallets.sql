@@ -446,12 +446,14 @@ CREATE OR REPLACE FUNCTION private.transfer_between_wallets(
 )
 RETURNS BIGINT AS $$
 DECLARE
-    v_from_acct   BIGINT;
-    v_to_acct     BIGINT;
-    v_available   NUMERIC(20,4);
-    v_entry_id    BIGINT;
-    v_lock_first  BIGINT;
-    v_lock_second BIGINT;
+    v_from_acct      BIGINT;
+    v_from_currency  CHAR(3);
+    v_to_acct        BIGINT;
+    v_to_currency    CHAR(3);
+    v_available      NUMERIC(20,4);
+    v_entry_id       BIGINT;
+    v_lock_first     BIGINT;
+    v_lock_second    BIGINT;
 BEGIN
     IF p_amount <= 0 THEN
         RAISE EXCEPTION 'transfer amount must be positive, got %', p_amount;
@@ -481,8 +483,9 @@ BEGIN
                    WHERE  h.wallet_id = w.id
                      AND  h.status = 'active'
                ), 0),
-           w.ledger_account_id
-    INTO   v_available, v_from_acct
+           w.ledger_account_id,
+           w.currency
+    INTO   v_available, v_from_acct, v_from_currency
     FROM   public.wallets w
     WHERE  w.id = p_from_wallet_id
       AND  w.is_active = TRUE;
@@ -496,13 +499,19 @@ BEGIN
             p_from_wallet_id, v_available, p_amount;
     END IF;
 
-    SELECT ledger_account_id INTO v_to_acct
+    SELECT ledger_account_id, currency
+    INTO   v_to_acct, v_to_currency
     FROM   public.wallets
     WHERE  id = p_to_wallet_id
       AND  is_active = TRUE;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'destination wallet % not found or inactive', p_to_wallet_id;
+    END IF;
+
+    IF v_from_currency <> v_to_currency THEN
+        RAISE EXCEPTION 'currency mismatch: source wallet is %, destination wallet is % — cross-currency transfers are not supported',
+            v_from_currency, v_to_currency;
     END IF;
 
     INSERT INTO public.journal_entries (description, reference_type, reference_id, idempotency_key)
