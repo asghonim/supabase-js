@@ -399,6 +399,457 @@ export type Database = {
         }
         Relationships: []
       }
+      categories: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+          organization_id: number
+          parent_category_id: number | null
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          name: string
+          organization_id: number
+          parent_category_id?: number | null
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          name?: string
+          organization_id?: number
+          parent_category_id?: number | null
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "categories_parent_category_id_fkey"
+            columns: ["parent_category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_blocks: {
+        Row: {
+          block_order: number
+          block_type: string
+          content_version_id: number
+          data_json: Json
+          id: number
+        }
+        Insert: {
+          block_order: number
+          block_type: string
+          content_version_id: number
+          data_json?: Json
+          id?: never
+        }
+        Update: {
+          block_order?: number
+          block_type?: string
+          content_version_id?: number
+          data_json?: Json
+          id?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_blocks_content_version_id_fkey"
+            columns: ["content_version_id"]
+            isOneToOne: false
+            referencedRelation: "content_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_categories: {
+        Row: {
+          category_id: number
+          content_id: number
+        }
+        Insert: {
+          category_id: number
+          content_id: number
+        }
+        Update: {
+          category_id?: number
+          content_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_categories_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_history: {
+        Row: {
+          action: string
+          content_id: number
+          created_at: string
+          id: number
+          new_values_json: Json | null
+          old_values_json: Json | null
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          action: string
+          content_id: number
+          created_at?: string
+          id?: never
+          new_values_json?: Json | null
+          old_values_json?: Json | null
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          action?: string
+          content_id?: number
+          created_at?: string
+          id?: never
+          new_values_json?: Json | null
+          old_values_json?: Json | null
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_history_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_history_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_media: {
+        Row: {
+          content_version_id: number
+          media_id: number
+        }
+        Insert: {
+          content_version_id: number
+          media_id: number
+        }
+        Update: {
+          content_version_id?: number
+          media_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_media_content_version_id_fkey"
+            columns: ["content_version_id"]
+            isOneToOne: false
+            referencedRelation: "content_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_media_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "media"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_snippets: {
+        Row: {
+          created_at: string
+          data_json: Json
+          id: number
+          organization_id: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_json?: Json
+          id?: never
+          organization_id: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_json?: Json
+          id?: never
+          organization_id?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_snippets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_tags: {
+        Row: {
+          content_id: number
+          tag_id: number
+        }
+        Insert: {
+          content_id: number
+          tag_id: number
+        }
+        Update: {
+          content_id?: number
+          tag_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_tags_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_translations: {
+        Row: {
+          body_json: Json
+          content_id: number
+          created_at: string
+          id: number
+          language: string
+          seo_description: string | null
+          seo_title: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body_json?: Json
+          content_id: number
+          created_at?: string
+          id?: never
+          language: string
+          seo_description?: string | null
+          seo_title?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body_json?: Json
+          content_id?: number
+          created_at?: string
+          id?: never
+          language?: string
+          seo_description?: string | null
+          seo_title?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_translations_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: number
+          name: string
+          organization_id: number | null
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: never
+          name: string
+          organization_id?: number | null
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: never
+          name?: string
+          organization_id?: number | null
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_types_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_versions: {
+        Row: {
+          body_json: Json
+          content_id: number
+          created_at: string
+          created_by_account_id: number | null
+          id: number
+          seo_description: string | null
+          seo_title: string | null
+          summary: string | null
+          title: string
+          version_number: number
+        }
+        Insert: {
+          body_json?: Json
+          content_id: number
+          created_at?: string
+          created_by_account_id?: number | null
+          id?: never
+          seo_description?: string | null
+          seo_title?: string | null
+          summary?: string | null
+          title: string
+          version_number: number
+        }
+        Update: {
+          body_json?: Json
+          content_id?: number
+          created_at?: string
+          created_by_account_id?: number | null
+          id?: never
+          seo_description?: string | null
+          seo_title?: string | null
+          summary?: string | null
+          title?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_versions_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_versions_created_by_account_id_fkey"
+            columns: ["created_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contents: {
+        Row: {
+          content_type_id: number
+          created_at: string
+          created_by_account_id: number | null
+          id: number
+          organization_id: number
+          publish_at: string | null
+          published_version_id: number | null
+          slug: string
+          status: string
+          title: string
+          unpublish_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          content_type_id: number
+          created_at?: string
+          created_by_account_id?: number | null
+          id?: never
+          organization_id: number
+          publish_at?: string | null
+          published_version_id?: number | null
+          slug: string
+          status?: string
+          title: string
+          unpublish_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content_type_id?: number
+          created_at?: string
+          created_by_account_id?: number | null
+          id?: never
+          organization_id?: number
+          publish_at?: string | null
+          published_version_id?: number | null
+          slug?: string
+          status?: string
+          title?: string
+          unpublish_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contents_content_type_id_fkey"
+            columns: ["content_type_id"]
+            isOneToOne: false
+            referencedRelation: "content_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contents_created_by_account_id_fkey"
+            columns: ["created_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_contents_published_version"
+            columns: ["published_version_id"]
+            isOneToOne: false
+            referencedRelation: "content_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_participants: {
         Row: {
           account_id: number
@@ -1018,6 +1469,109 @@ export type Database = {
           uid?: string
         }
         Relationships: []
+      }
+      media: {
+        Row: {
+          created_at: string
+          created_by_account_id: number | null
+          filename: string
+          folder_id: number | null
+          height: number | null
+          id: number
+          mime_type: string
+          organization_id: number
+          size_bytes: number | null
+          storage_path: string
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by_account_id?: number | null
+          filename: string
+          folder_id?: number | null
+          height?: number | null
+          id?: never
+          mime_type: string
+          organization_id: number
+          size_bytes?: number | null
+          storage_path: string
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by_account_id?: number | null
+          filename?: string
+          folder_id?: number | null
+          height?: number | null
+          id?: never
+          mime_type?: string
+          organization_id?: number
+          size_bytes?: number | null
+          storage_path?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_created_by_account_id_fkey"
+            columns: ["created_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_folders: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+          organization_id: number
+          parent_folder_id: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          name: string
+          organization_id: number
+          parent_folder_id?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          name?: string
+          organization_id?: number
+          parent_folder_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_folders_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_folders_parent_folder_id_fkey"
+            columns: ["parent_folder_id"]
+            isOneToOne: false
+            referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       message_attachments: {
         Row: {
@@ -2099,6 +2653,60 @@ export type Database = {
         }
         Relationships: []
       }
+      seo_metadata: {
+        Row: {
+          canonical_url: string | null
+          content_id: number
+          created_at: string
+          meta_description: string | null
+          meta_title: string | null
+          og_description: string | null
+          og_image_id: number | null
+          og_title: string | null
+          robots: string
+          updated_at: string
+        }
+        Insert: {
+          canonical_url?: string | null
+          content_id: number
+          created_at?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          og_description?: string | null
+          og_image_id?: number | null
+          og_title?: string | null
+          robots?: string
+          updated_at?: string
+        }
+        Update: {
+          canonical_url?: string | null
+          content_id?: number
+          created_at?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          og_description?: string | null
+          og_image_id?: number | null
+          og_title?: string | null
+          robots?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_metadata_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: true
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seo_metadata_og_image_id_fkey"
+            columns: ["og_image_id"]
+            isOneToOne: false
+            referencedRelation: "media"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_addons: {
         Row: {
           addon_version_id: number
@@ -2542,6 +3150,38 @@ export type Database = {
           },
         ]
       }
+      tags: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+          organization_id: number
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          name: string
+          organization_id: number
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          name?: string
+          organization_id?: number
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           assigned_to_account_id: number | null
@@ -2888,10 +3528,10 @@ export type Database = {
       }
       wallet_create: {
         Args: {
-          p_owner_type: Database["public"]["Enums"]["wallet_owner_type"]
-          p_owner_id: number
           p_currency?: string
-          p_name?: string | null
+          p_name?: string
+          p_owner_id: number
+          p_owner_type: Database["public"]["Enums"]["wallet_owner_type"]
         }
         Returns: number
       }

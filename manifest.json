@@ -37,6 +37,14 @@
       {
         "source": "supabase/migrations/20260000000009_tickets.sql",
         "destination": "supabase/migrations/20260000000009_tickets.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000010_wallets.sql",
+        "destination": "supabase/migrations/20260000000010_wallets.sql"
+      },
+      {
+        "source": "supabase/migrations/20260000000011_contents.sql",
+        "destination": "supabase/migrations/20260000000011_contents.sql"
       }
     ]
   }

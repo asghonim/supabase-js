@@ -64,3 +64,21 @@ export type {
   JournalEntryRow, JournalLineRow,
   WalletOwnerType, WalletHoldStatus, LedgerAccountType,
 } from './wallets';
+export { createContentDb } from './content';
+export type {
+  ContentDb,
+  ContentStatus,
+  ContentHistoryAction,
+  ContentBlockInsert,
+  ContentTypeRow,
+  ContentRow,
+  ContentVersionRow,
+  ContentBlockRow,
+  ContentHistoryRow,
+} from './content';
+export { createMediaDb } from './media';
+export type { MediaDb, MediaRow, MediaFolderRow } from './media';
+export { createTaxonomyDb } from './taxonomy';
+export type { TaxonomyDb, TagRow, CategoryRow } from './taxonomy';
+export { createContentMetaDb } from './content-meta';
+export type { ContentMetaDb, ContentTranslationRow, SeoMetadataRow, ContentSnippetRow } from './content-meta';

@@ -1,7 +1,40 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient, PostgrestSingleResponse } from '@supabase/supabase-js'
 import type { Database } from './database'
 
-export function createRbacDb(supabase: SupabaseClient<Database>) {
+type PermissionsRow         = Database['public']['Tables']['permissions']['Row']
+type PlatformRoleRow        = Database['public']['Tables']['platform_roles']['Row']
+type AccountPlatformRoleRow = Database['public']['Tables']['account_platform_roles']['Row']
+type OrgRoleRow             = Database['public']['Tables']['organization_roles']['Row']
+type OrgRolePermissionsRow  = Database['public']['Tables']['organization_role_permissions']['Row']
+
+type PlatformRoleWithPermissions = PlatformRoleRow & {
+  platform_role_permissions: Array<{ permission_id: number; permissions: PermissionsRow | null }>
+}
+
+type AccountPlatformRoleWithRole = AccountPlatformRoleRow & {
+  platform_roles: PlatformRoleRow | null
+}
+
+type OrgRoleWithPermissions = OrgRoleRow & {
+  organization_role_permissions: Array<{ permission_id: number; permissions: PermissionsRow | null }>
+}
+
+export interface RbacDb {
+  listPermissions(scope?: 'platform' | 'organization'): PromiseLike<PostgrestSingleResponse<PermissionsRow[]>>
+  listPlatformRoles(): PromiseLike<PostgrestSingleResponse<PlatformRoleWithPermissions[]>>
+  getMyPlatformPermissions(): PromiseLike<PostgrestSingleResponse<string[]>>
+  getAccountPlatformRoles(accountId: number): PromiseLike<PostgrestSingleResponse<AccountPlatformRoleWithRole[]>>
+  assignPlatformRole(accountId: number, platformRoleId: number, grantedByAccountId: number): PromiseLike<PostgrestSingleResponse<AccountPlatformRoleRow>>
+  revokePlatformRole(accountId: number, platformRoleId: number): PromiseLike<PostgrestSingleResponse<null>>
+  listOrgRoles(orgId: number): PromiseLike<PostgrestSingleResponse<OrgRoleWithPermissions[]>>
+  createOrgRole(orgId: number, data: { key: string; name: string; description?: string }): PromiseLike<PostgrestSingleResponse<OrgRoleRow>>
+  deleteOrgRole(orgRoleId: number): PromiseLike<PostgrestSingleResponse<null>>
+  assignOrgRolePermission(orgRoleId: number, permissionId: number): PromiseLike<PostgrestSingleResponse<OrgRolePermissionsRow>>
+  removeOrgRolePermission(orgRoleId: number, permissionId: number): PromiseLike<PostgrestSingleResponse<null>>
+  getMyOrgPermissions(orgId: number): PromiseLike<PostgrestSingleResponse<string[]>>
+}
+
+export function createRbacDb(supabase: SupabaseClient<Database>): RbacDb {
   const db = supabase
 
   return {
@@ -18,7 +51,7 @@ export function createRbacDb(supabase: SupabaseClient<Database>) {
       return db
         .from('platform_roles')
         .select('*, platform_role_permissions(permission_id, permissions(*))')
-        .order('key')
+        .order('key') as unknown as PromiseLike<PostgrestSingleResponse<PlatformRoleWithPermissions[]>>
     },
 
     getMyPlatformPermissions() {
@@ -29,7 +62,7 @@ export function createRbacDb(supabase: SupabaseClient<Database>) {
       return db
         .from('account_platform_roles')
         .select('*, platform_roles(*)')
-        .eq('account_id', accountId)
+        .eq('account_id', accountId) as unknown as PromiseLike<PostgrestSingleResponse<AccountPlatformRoleWithRole[]>>
     },
 
     assignPlatformRole(
@@ -64,7 +97,7 @@ export function createRbacDb(supabase: SupabaseClient<Database>) {
         .from('organization_roles')
         .select('*, organization_role_permissions(permission_id, permissions(*))')
         .or(`organization_id.eq.${orgId},organization_id.is.null`)
-        .order('key')
+        .order('key') as unknown as PromiseLike<PostgrestSingleResponse<OrgRoleWithPermissions[]>>
     },
 
     createOrgRole(
@@ -104,5 +137,3 @@ export function createRbacDb(supabase: SupabaseClient<Database>) {
 
   }
 }
-
-export type RbacDb = ReturnType<typeof createRbacDb>
