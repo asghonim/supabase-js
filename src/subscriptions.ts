@@ -1,12 +1,62 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient, PostgrestSingleResponse, PostgrestResponse } from '@supabase/supabase-js'
 import type { Database } from './database'
 
-type ChangeRequestInsert =
-  Database['public']['Tables']['subscription_change_requests']['Insert']
-type SubscriptionStatus = Database['public']['Enums']['subscription_status']
-type ChangeRequestStatus = Database['public']['Enums']['change_request_status']
+type SB<T>  = PromiseLike<PostgrestSingleResponse<T>>
+type SBL<T> = PromiseLike<PostgrestResponse<T>>
 
-export function createSubscriptionsDb(supabase: SupabaseClient<Database>) {
+type OrgBillingEmailRow          = Database['public']['Tables']['organization_billing_emails']['Row']
+type SubscriptionRow             = Database['public']['Tables']['subscriptions']['Row']
+type PlanVersionRow              = Database['public']['Tables']['plan_versions']['Row']
+type PlanRow                     = Database['public']['Tables']['plans']['Row']
+type SubscriptionAddonRow        = Database['public']['Tables']['subscription_addons']['Row']
+type AddonVersionRow             = Database['public']['Tables']['addon_versions']['Row']
+type AddonRow                    = Database['public']['Tables']['addons']['Row']
+type SubscriptionChangeRequestRow = Database['public']['Tables']['subscription_change_requests']['Row']
+type SubscriptionEventRow        = Database['public']['Tables']['subscription_events']['Row']
+type SubscriptionContractRow     = Database['public']['Tables']['subscription_contracts']['Row']
+
+type ChangeRequestInsert  = Database['public']['Tables']['subscription_change_requests']['Insert']
+type SubscriptionStatus   = Database['public']['Enums']['subscription_status']
+type ChangeRequestStatus  = Database['public']['Enums']['change_request_status']
+
+type SubscriptionWithPlan = SubscriptionRow & {
+  plan_versions: (PlanVersionRow & { plans: PlanRow | null }) | null
+}
+
+type AddonWithVersion = SubscriptionAddonRow & {
+  addon_versions: (AddonVersionRow & { addons: AddonRow | null }) | null
+}
+
+export interface SubscriptionsDb {
+  // ── Billing emails ──────────────────────────────────────────────────────────
+  createOrganizationBillingEmail(orgId: number, billingEmail: string): SB<OrgBillingEmailRow>
+
+  // ── Subscriptions ───────────────────────────────────────────────────────────
+  getById(id: number): SB<SubscriptionWithPlan>
+  getActiveForOrg(orgId: number): SB<SubscriptionWithPlan>
+  listForOrg(orgId: number): SBL<SubscriptionWithPlan>
+  getByProviderSubscriptionId(providerSubscriptionId: string): SB<SubscriptionRow & { plan_versions: PlanVersionRow | null }>
+
+  // ── Subscription addons ─────────────────────────────────────────────────────
+  listAddons(subscriptionId: number): SBL<AddonWithVersion>
+  getActiveAddons(subscriptionId: number): SBL<AddonWithVersion>
+
+  // ── Subscription change requests ────────────────────────────────────────────
+  createChangeRequest(data: ChangeRequestInsert): SB<SubscriptionChangeRequestRow>
+  getChangeRequest(id: number): SB<SubscriptionChangeRequestRow>
+  getChangeRequestByIdempotencyKey(key: string): SB<SubscriptionChangeRequestRow>
+  listChangeRequests(subscriptionId: number, options?: { status?: ChangeRequestStatus }): SBL<SubscriptionChangeRequestRow>
+  listOrgChangeRequests(orgId: number, options?: { status?: ChangeRequestStatus }): SBL<SubscriptionChangeRequestRow>
+
+  // ── Subscription events (audit trail) ───────────────────────────────────────
+  listEvents(orgId: number, options?: { subscriptionId?: number; limit?: number }): SBL<SubscriptionEventRow>
+
+  // ── Contracts ───────────────────────────────────────────────────────────────
+  listContracts(orgId: number): SBL<SubscriptionContractRow>
+  getContract(id: number): SB<SubscriptionContractRow>
+}
+
+export function createSubscriptionsDb(supabase: SupabaseClient<Database>): SubscriptionsDb {
   return {
     // ── Billing emails ───────────────────────────────────────────────
 
@@ -28,7 +78,6 @@ export function createSubscriptionsDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    /** The active (or trialing) subscription for an organization. */
     getActiveForOrg(orgId: number) {
       return supabase
         .from('subscriptions')
@@ -40,7 +89,6 @@ export function createSubscriptionsDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    /** All subscriptions for an org (including cancelled/expired). */
     listForOrg(orgId: number) {
       return supabase
         .from('subscriptions')
@@ -77,11 +125,6 @@ export function createSubscriptionsDb(supabase: SupabaseClient<Database>) {
 
     // ── Subscription change requests ─────────────────────────────────
 
-    /**
-     * Create a change request. All subscription mutations (upgrade,
-     * downgrade, cancel, seat change, addon add/remove) must go through
-     * this — never UPDATE subscriptions directly.
-     */
     createChangeRequest(data: ChangeRequestInsert) {
       return supabase
         .from('subscription_change_requests')
@@ -180,4 +223,3 @@ export function createSubscriptionsDb(supabase: SupabaseClient<Database>) {
   }
 }
 
-export type SubscriptionsDb = ReturnType<typeof createSubscriptionsDb>

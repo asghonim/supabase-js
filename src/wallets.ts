@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient, PostgrestSingleResponse, PostgrestMaybeSingleResponse, PostgrestResponse } from '@supabase/supabase-js'
 import type { Database } from './database'
 
 export type WalletRow         = Database['public']['Tables']['wallets']['Row']
@@ -86,7 +86,24 @@ export type WalletsDb = ReturnType<typeof createWalletsDb>
 
 // ── Admin / service-role operations ──────────────────────────────────────────
 
-export function createAdminWalletsDb(supabase: SupabaseClient<Database>) {
+export interface AdminWalletsDb {
+  createWallet(ownerType: WalletOwnerType, ownerId: number, currency?: string, name?: string): Promise<{ data: WalletRow | null; error: unknown }>
+  getWallet(id: number): PromiseLike<PostgrestSingleResponse<WalletRow>>
+  getWalletByOwner(ownerType: WalletOwnerType, ownerId: number, currency?: string): PromiseLike<PostgrestMaybeSingleResponse<WalletRow>>
+  getLedgerAccount(id: number): PromiseLike<PostgrestSingleResponse<LedgerAccountRow>>
+  getLedgerAccountByName(name: string, currency?: string): PromiseLike<PostgrestMaybeSingleResponse<LedgerAccountRow>>
+  listLedgerAccounts(options?: { currency?: string; type?: LedgerAccountType }): PromiseLike<PostgrestResponse<LedgerAccountRow>>
+  deposit(walletId: number, amount: number, sourceAccountId: number, description: string, options?: { idempotencyKey?: string; referenceType?: string; referenceId?: number }): PromiseLike<PostgrestSingleResponse<number>>
+  spend(walletId: number, amount: number, destAccountId: number, description: string, options?: { idempotencyKey?: string; referenceType?: string; referenceId?: number }): PromiseLike<PostgrestSingleResponse<number>>
+  transfer(fromWalletId: number, toWalletId: number, amount: number, description: string, options?: { idempotencyKey?: string; referenceType?: string; referenceId?: number }): PromiseLike<PostgrestSingleResponse<number>>
+  availableBalance(walletId: number): PromiseLike<PostgrestSingleResponse<number>>
+  createHold(walletId: number, amount: number, description: string, options?: { expiresAt?: string; referenceType?: string; referenceId?: number; idempotencyKey?: string }): PromiseLike<PostgrestSingleResponse<WalletHoldRow>>
+  updateHoldStatus(holdId: number, status: Exclude<WalletHoldStatus, 'active'>): PromiseLike<PostgrestMaybeSingleResponse<WalletHoldRow>>
+  listJournalLines(walletId: number, options?: { limit?: number; before?: string }): Promise<{ data: Array<JournalLineRow & { journal_entries: JournalEntryRow | null }> | null; error: unknown }>
+  listHolds(walletId: number, options?: { status?: WalletHoldStatus; limit?: number }): PromiseLike<PostgrestResponse<WalletHoldRow>>
+}
+
+export function createAdminWalletsDb(supabase: SupabaseClient<Database>): AdminWalletsDb {
   return {
     // ── Wallet provisioning ───────────────────────────────────────────
 
@@ -285,5 +302,3 @@ export function createAdminWalletsDb(supabase: SupabaseClient<Database>) {
     },
   }
 }
-
-export type AdminWalletsDb = ReturnType<typeof createAdminWalletsDb>

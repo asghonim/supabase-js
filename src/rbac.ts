@@ -1,37 +1,45 @@
-import type { SupabaseClient, PostgrestSingleResponse } from '@supabase/supabase-js'
+import type { SupabaseClient, PostgrestSingleResponse, PostgrestResponse } from '@supabase/supabase-js'
 import type { Database } from './database'
 
-type PermissionsRow         = Database['public']['Tables']['permissions']['Row']
+type SB<T>  = PromiseLike<PostgrestSingleResponse<T>>
+type SBL<T> = PromiseLike<PostgrestResponse<T>>
+
+type PermissionRow          = Database['public']['Tables']['permissions']['Row']
 type PlatformRoleRow        = Database['public']['Tables']['platform_roles']['Row']
 type AccountPlatformRoleRow = Database['public']['Tables']['account_platform_roles']['Row']
 type OrgRoleRow             = Database['public']['Tables']['organization_roles']['Row']
-type OrgRolePermissionsRow  = Database['public']['Tables']['organization_role_permissions']['Row']
+type OrgRolePermissionRow   = Database['public']['Tables']['organization_role_permissions']['Row']
 
 type PlatformRoleWithPermissions = PlatformRoleRow & {
-  platform_role_permissions: Array<{ permission_id: number; permissions: PermissionsRow | null }>
+  platform_role_permissions: Array<{ permission_id: number; permissions: PermissionRow | null }>
 }
-
-type AccountPlatformRoleWithRole = AccountPlatformRoleRow & {
-  platform_roles: PlatformRoleRow | null
-}
-
+type AccountPlatformRoleWithRole = AccountPlatformRoleRow & { platform_roles: PlatformRoleRow | null }
 type OrgRoleWithPermissions = OrgRoleRow & {
-  organization_role_permissions: Array<{ permission_id: number; permissions: PermissionsRow | null }>
+  organization_role_permissions: Array<{ permission_id: number; permissions: PermissionRow | null }>
 }
 
 export interface RbacDb {
-  listPermissions(scope?: 'platform' | 'organization'): PromiseLike<PostgrestSingleResponse<PermissionsRow[]>>
-  listPlatformRoles(): PromiseLike<PostgrestSingleResponse<PlatformRoleWithPermissions[]>>
-  getMyPlatformPermissions(): PromiseLike<PostgrestSingleResponse<string[]>>
-  getAccountPlatformRoles(accountId: number): PromiseLike<PostgrestSingleResponse<AccountPlatformRoleWithRole[]>>
-  assignPlatformRole(accountId: number, platformRoleId: number, grantedByAccountId: number): PromiseLike<PostgrestSingleResponse<AccountPlatformRoleRow>>
-  revokePlatformRole(accountId: number, platformRoleId: number): PromiseLike<PostgrestSingleResponse<null>>
-  listOrgRoles(orgId: number): PromiseLike<PostgrestSingleResponse<OrgRoleWithPermissions[]>>
-  createOrgRole(orgId: number, data: { key: string; name: string; description?: string }): PromiseLike<PostgrestSingleResponse<OrgRoleRow>>
-  deleteOrgRole(orgRoleId: number): PromiseLike<PostgrestSingleResponse<null>>
-  assignOrgRolePermission(orgRoleId: number, permissionId: number): PromiseLike<PostgrestSingleResponse<OrgRolePermissionsRow>>
-  removeOrgRolePermission(orgRoleId: number, permissionId: number): PromiseLike<PostgrestSingleResponse<null>>
-  getMyOrgPermissions(orgId: number): PromiseLike<PostgrestSingleResponse<string[]>>
+  // ── Permissions ────────────────────────────────────────────────────────────
+  listPermissions(scope?: 'platform' | 'organization'): SBL<PermissionRow>
+
+  // ── Platform roles ─────────────────────────────────────────────────────────
+  listPlatformRoles(): SBL<PlatformRoleRow & {
+    platform_role_permissions: Array<{ permission_id: number; permissions: PermissionRow | null }>
+  }>
+  getMyPlatformPermissions(): SB<string[]>
+  getAccountPlatformRoles(accountId: number): SBL<AccountPlatformRoleRow & { platform_roles: PlatformRoleRow | null }>
+  assignPlatformRole(accountId: number, platformRoleId: number, grantedByAccountId: number): SB<AccountPlatformRoleRow>
+  revokePlatformRole(accountId: number, platformRoleId: number): SB<null>
+
+  // ── Organization roles ─────────────────────────────────────────────────────
+  listOrgRoles(orgId: number): SBL<OrgRoleRow & {
+    organization_role_permissions: Array<{ permission_id: number; permissions: PermissionRow | null }>
+  }>
+  createOrgRole(orgId: number, data: { key: string; name: string; description?: string }): SB<OrgRoleRow>
+  deleteOrgRole(orgRoleId: number): SB<null>
+  assignOrgRolePermission(orgRoleId: number, permissionId: number): SB<OrgRolePermissionRow>
+  removeOrgRolePermission(orgRoleId: number, permissionId: number): SB<null>
+  getMyOrgPermissions(orgId: number): SB<string[]>
 }
 
 export function createRbacDb(supabase: SupabaseClient<Database>): RbacDb {
@@ -40,7 +48,7 @@ export function createRbacDb(supabase: SupabaseClient<Database>): RbacDb {
   return {
     // ── Permissions ────────────────────────────────────────────────
 
-  listPermissions(scope?: 'platform' | 'organization') {
+    listPermissions(scope?: 'platform' | 'organization') {
       const q = db.from('permissions').select('*').order('scope').order('key')
       return scope ? q.eq('scope', scope) : q
     },
@@ -91,7 +99,6 @@ export function createRbacDb(supabase: SupabaseClient<Database>): RbacDb {
 
     // ── Organization roles ─────────────────────────────────────────
 
-    /** System roles (org_id IS NULL) + custom roles for the given org. */
     listOrgRoles(orgId: number) {
       return db
         .from('organization_roles')
@@ -134,6 +141,5 @@ export function createRbacDb(supabase: SupabaseClient<Database>): RbacDb {
     getMyOrgPermissions(orgId: number) {
       return db.rpc('get_my_org_permissions', { p_org_id: orgId })
     },
-
   }
 }
