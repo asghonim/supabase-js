@@ -69,7 +69,6 @@ export function createContentDb(supabase: SupabaseClient<Database>) {
         slug: string
         title: string
         status?: ContentStatus
-        created_by_account_id?: number
       },
     ) {
       return supabase

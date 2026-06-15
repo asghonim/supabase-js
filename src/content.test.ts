@@ -474,7 +474,6 @@ describe('content history', () => {
       content_type_id: ct.id,
       slug: uniqueSlug('history-post'),
       title: 'History Post',
-      created_by_account_id: owner.accountId,
     })
     if (!content) throw new Error('failed to create content for history test')
     contentId = content.id

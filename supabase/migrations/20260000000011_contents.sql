@@ -67,6 +67,7 @@ $$ LANGUAGE plpgsql SET search_path = public, private;
 
 CREATE TABLE public.content_types (
     id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     organization_id BIGINT      REFERENCES public.organizations(id) ON DELETE CASCADE,
     slug            TEXT        NOT NULL CHECK (char_length(slug)  BETWEEN 1 AND 100),
     name            TEXT        NOT NULL CHECK (char_length(name)  BETWEEN 1 AND 255),
@@ -92,6 +93,7 @@ INSERT INTO public.content_types (organization_id, slug, name, description) VALU
 
 CREATE TABLE public.contents (
     id                    BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                   UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     organization_id       BIGINT      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
     content_type_id       BIGINT      NOT NULL REFERENCES public.content_types(id) ON DELETE RESTRICT,
     slug                  TEXT        NOT NULL CHECK (char_length(slug)  BETWEEN 1 AND 500),
@@ -123,6 +125,7 @@ CREATE TRIGGER on_contents_updated
 
 CREATE TABLE public.content_versions (
     id                    BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                   UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     content_id            BIGINT      NOT NULL REFERENCES public.contents(id) ON DELETE CASCADE,
     version_number        INTEGER     NOT NULL,
     title                 TEXT        NOT NULL CHECK (char_length(title) BETWEEN 1 AND 500),
@@ -155,6 +158,7 @@ ALTER TABLE public.contents
 
 CREATE TABLE public.content_blocks (
     id                 BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                UUID    NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     content_version_id BIGINT  NOT NULL REFERENCES public.content_versions(id) ON DELETE CASCADE,
     block_order        INTEGER NOT NULL,
     block_type         TEXT    NOT NULL CHECK (char_length(block_type) BETWEEN 1 AND 100),
@@ -189,6 +193,7 @@ $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, private;
 
 CREATE TABLE public.media_folders (
     id               BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid              UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     organization_id  BIGINT      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
     parent_folder_id BIGINT               REFERENCES public.media_folders(id) ON DELETE CASCADE,
     name             TEXT        NOT NULL CHECK (char_length(name) BETWEEN 1 AND 255),
@@ -204,6 +209,7 @@ CREATE INDEX idx_media_folders_parent ON public.media_folders(parent_folder_id) 
 
 CREATE TABLE public.media (
     id                    BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                   UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     organization_id       BIGINT      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
     folder_id             BIGINT               REFERENCES public.media_folders(id)  ON DELETE SET NULL,
     filename              TEXT        NOT NULL CHECK (char_length(filename) BETWEEN 1 AND 500),
@@ -237,6 +243,7 @@ CREATE INDEX idx_content_media_media ON public.content_media(media_id);
 
 CREATE TABLE public.tags (
     id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     organization_id BIGINT      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
     name            TEXT        NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),
     slug            TEXT        NOT NULL CHECK (char_length(slug) BETWEEN 1 AND 100),
@@ -260,6 +267,7 @@ CREATE INDEX idx_content_tags_tag ON public.content_tags(tag_id);
 
 CREATE TABLE public.categories (
     id                 BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     organization_id    BIGINT      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
     parent_category_id BIGINT               REFERENCES public.categories(id)   ON DELETE SET NULL,
     name               TEXT        NOT NULL CHECK (char_length(name) BETWEEN 1 AND 255),
@@ -285,6 +293,7 @@ CREATE INDEX idx_content_categories_category ON public.content_categories(catego
 
 CREATE TABLE public.content_translations (
     id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     content_id      BIGINT      NOT NULL REFERENCES public.contents(id) ON DELETE CASCADE,
     language        TEXT        NOT NULL CHECK (char_length(language) BETWEEN 2 AND 10),
     title           TEXT        NOT NULL CHECK (char_length(title)    BETWEEN 1 AND 500),
@@ -308,6 +317,7 @@ CREATE TRIGGER on_content_translations_updated
 
 CREATE TABLE public.seo_metadata (
     content_id       BIGINT      PRIMARY KEY REFERENCES public.contents(id) ON DELETE CASCADE,
+    uid              UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     meta_title       TEXT,
     meta_description TEXT,
     canonical_url    TEXT,
@@ -331,6 +341,7 @@ CREATE TRIGGER on_seo_metadata_updated
 
 CREATE TABLE public.content_history (
     id                      BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid                     UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     content_id              BIGINT      NOT NULL REFERENCES public.contents(id) ON DELETE CASCADE,
     action                  TEXT        NOT NULL
                                         CHECK (action IN ('created', 'edited', 'published', 'unpublished', 'archived', 'deleted')),
@@ -348,6 +359,7 @@ CREATE INDEX idx_content_history_content ON public.content_history(content_id, c
 
 CREATE TABLE public.content_snippets (
     id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
     organization_id BIGINT      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
     slug            TEXT        NOT NULL CHECK (char_length(slug) BETWEEN 1 AND 255),
     data_json       JSONB       NOT NULL DEFAULT '{}',
@@ -381,6 +393,19 @@ $$ LANGUAGE plpgsql SET search_path = public, private;
 CREATE TRIGGER set_content_version_number
     BEFORE INSERT ON public.content_versions
     FOR EACH ROW EXECUTE FUNCTION private.set_content_version_number();
+
+-- Overwrite created_by_account_id with the authenticated actor; never trust client input.
+CREATE OR REPLACE FUNCTION private.set_content_created_by()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.created_by_account_id = (SELECT id FROM public.accounts WHERE user_id = auth.uid());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
+
+CREATE TRIGGER set_content_created_by
+    BEFORE INSERT ON public.contents
+    FOR EACH ROW EXECUTE FUNCTION private.set_content_created_by();
 
 -- Record creation event in history
 CREATE OR REPLACE FUNCTION private.on_content_inserted()
