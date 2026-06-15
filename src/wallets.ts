@@ -100,7 +100,7 @@ export function createAdminWalletsDb(supabase: SupabaseClient<Database>) {
         p_owner_type: ownerType,
         p_owner_id:   ownerId,
         p_currency:   currency,
-        p_name:       name ?? null,
+        p_name:       name,
       })
 
       if (error || walletId == null) return { data: null, error }

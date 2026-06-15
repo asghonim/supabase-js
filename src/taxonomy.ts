@@ -1,10 +1,36 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient, PostgrestSingleResponse } from '@supabase/supabase-js'
 import type { Database } from './database'
 
-type TagRow      = Database['public']['Tables']['tags']['Row']
-type CategoryRow = Database['public']['Tables']['categories']['Row']
+export type TagRow      = Database['public']['Tables']['tags']['Row']
+export type CategoryRow = Database['public']['Tables']['categories']['Row']
 
-export function createTaxonomyDb(supabase: SupabaseClient<Database>) {
+type ContentTagRow      = Database['public']['Tables']['content_tags']['Row']
+type ContentCategoryRow = Database['public']['Tables']['content_categories']['Row']
+
+type ContentTagWithTag = ContentTagRow & { tags: TagRow | null }
+type ContentCategoryWithCategory = ContentCategoryRow & { categories: CategoryRow | null }
+
+export interface TaxonomyDb {
+  // ── Tags ──────────────────────────────────────────────────────────
+
+  listTags(orgId: number): PromiseLike<PostgrestSingleResponse<TagRow[]>>
+  createTag(orgId: number, data: { name: string; slug: string }): PromiseLike<PostgrestSingleResponse<TagRow>>
+  deleteTag(id: number): PromiseLike<PostgrestSingleResponse<null>>
+  addTagsToContent(contentId: number, tagIds: number[]): PromiseLike<PostgrestSingleResponse<ContentTagRow[]>>
+  removeTagsFromContent(contentId: number, tagIds: number[]): PromiseLike<PostgrestSingleResponse<null>>
+  listContentTags(contentId: number): PromiseLike<PostgrestSingleResponse<ContentTagWithTag[]>>
+
+  // ── Categories ────────────────────────────────────────────────────
+
+  listCategories(orgId: number, parentCategoryId?: number | null): PromiseLike<PostgrestSingleResponse<CategoryRow[]>>
+  createCategory(orgId: number, data: { name: string; slug: string; parent_category_id?: number }): PromiseLike<PostgrestSingleResponse<CategoryRow>>
+  deleteCategory(id: number): PromiseLike<PostgrestSingleResponse<null>>
+  addCategoriesToContent(contentId: number, categoryIds: number[]): PromiseLike<PostgrestSingleResponse<ContentCategoryRow[]>>
+  removeCategoriesFromContent(contentId: number, categoryIds: number[]): PromiseLike<PostgrestSingleResponse<null>>
+  listContentCategories(contentId: number): PromiseLike<PostgrestSingleResponse<ContentCategoryWithCategory[]>>
+}
+
+export function createTaxonomyDb(supabase: SupabaseClient<Database>): TaxonomyDb {
   return {
 
     // ── Tags ──────────────────────────────────────────────────────────
@@ -44,7 +70,7 @@ export function createTaxonomyDb(supabase: SupabaseClient<Database>) {
       return supabase
         .from('content_tags')
         .select('*, tags(*)')
-        .eq('content_id', contentId)
+        .eq('content_id', contentId) as unknown as PromiseLike<PostgrestSingleResponse<ContentTagWithTag[]>>
     },
 
     // ── Categories ────────────────────────────────────────────────────
@@ -95,11 +121,8 @@ export function createTaxonomyDb(supabase: SupabaseClient<Database>) {
       return supabase
         .from('content_categories')
         .select('*, categories(*)')
-        .eq('content_id', contentId)
+        .eq('content_id', contentId) as unknown as PromiseLike<PostgrestSingleResponse<ContentCategoryWithCategory[]>>
     },
 
   }
 }
-
-export type TaxonomyDb = ReturnType<typeof createTaxonomyDb>
-export type { TagRow, CategoryRow }
