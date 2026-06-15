@@ -30,7 +30,7 @@ export function createContentMetaDb(supabase: SupabaseClient<Database>) {
     ) {
       return supabase
         .from('content_translations')
-        .upsert({ ...data, content_id: contentId, language })
+        .upsert({ ...data, content_id: contentId, language }, { onConflict: 'content_id,language' })
         .select()
         .single()
     },
