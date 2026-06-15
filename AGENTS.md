@@ -1,4 +1,6 @@
-# Database Migration Instructions
+# Agents Instructions
+
+## Database Migration Instructions
 
 - Always prefer `SECURITY INVOKER` unless absolutely necessary
 - Add timestamp management triggers immediately after each table. Name the function and the trigger the same name. The `BEFORE` triggers should be named `on_insert_x`. The AFTER triggers should be named `on_x_inserted` etc. Create a separate trigger function per table, do not share trigger functions.
@@ -26,3 +28,8 @@
 - Prefix all table and function references with the schema name, e.g., `public.accounts`, `private.check_org_membership()`
 - Every table must have at maximum one trigger for the same event (BEFORE INSERT, AFTER UPDATE, etc.). If you need to perform multiple actions on the same event, call other functions from within the main trigger function.
 - Always prefer to implement logic in SQL functions and triggers rather than application code to ensure data integrity regardless of how the database is accessed.
+- To update src/database.ts, run `npm run reset:db` to apply the migrations and then `npm run gen:db` to regenerate the types. Do not manually edit src/database.ts as it will be overwritten by the generator. If you need to make manual edits, make them in the SQL migration files and then regenerate the types.
+
+## Typescript Instructions
+
+- When creating typescript interfaces for database entities, for example `createAdminMarketplaceDb`, create explicit type annotations instead of relying on type inference like `ReturnType<typeof createAdminMarketplaceDb>`. This ensures that the types are clear and maintainable, and prevents issues with circular dependencies or changes in the underlying function signatures affecting the inferred types. It also prevents typescript compiler errors when the infered type exceeds that maximum length the compiler can serialize. 

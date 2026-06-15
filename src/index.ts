@@ -82,3 +82,31 @@ export { createTaxonomyDb } from './taxonomy';
 export type { TaxonomyDb, TagRow, CategoryRow } from './taxonomy';
 export { createContentMetaDb } from './content-meta';
 export type { ContentMetaDb, ContentTranslationRow, SeoMetadataRow, ContentSnippetRow } from './content-meta';
+export { createCatalogDb, createAdminCatalogDb } from './catalog';
+export type {
+  CatalogDb, AdminCatalogDb,
+  ProductCategoryRow, ProductRow, ProductVariantRow,
+  AttributeRow, AttributeValueRow, VariantAttrValueRow,
+  WarehouseRow, InventoryTxnRow, PriceRow,
+  ProductStatus, VariantStatus,
+} from './catalog';
+export { createMarketplaceDb, createAdminMarketplaceDb } from './marketplace';
+export type {
+  MarketplaceDb, AdminMarketplaceDb,
+  SellerProfileRow, ListingRow, ListingImageRow, ListingAttributeRow,
+  AuctionRow, AuctionBidRow, ProxyBidRow, AuctionStatisticsRow,
+  ListingWatcherRow, CartRow, CartItemRow,
+  CheckoutSessionRow, CheckoutItemRow, InventoryReservationRow,
+  PromotionRow, PromotionRedemptionRow,
+  ListingType, ListingStatus, AuctionStatus, CartStatus,
+  CheckoutStatus, ReservationStatus, PromotionType,
+} from './marketplace';
+export { createOrdersDb, createAdminOrdersDb } from './orders';
+export type {
+  OrdersDb, AdminOrdersDb,
+  OrderRow, OrderUpdate, OrderItemRow, OrderEventRow, CommissionRow,
+  ShipmentRow, ShipmentItemRow, ReturnRow, ReturnUpdate, ReturnItemRow,
+  RefundRow, RefundUpdate, SellerPayoutRow, SellerPayoutUpdate,
+  SellerReviewRow, ListingReviewRow,
+  OrderStatus, ShipmentStatus, ReturnStatus, RefundStatus, PayoutStatus,
+} from './orders';
