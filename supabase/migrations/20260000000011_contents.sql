@@ -136,12 +136,16 @@ CREATE TABLE public.content_versions (
 );
 GRANT ALL ON TABLE public.content_versions TO authenticated, service_role;
 CREATE INDEX idx_content_versions_content ON public.content_versions(content_id, version_number DESC);
+-- Required so (content_id, id) can serve as a composite FK target below.
+CREATE UNIQUE INDEX uq_content_versions_content_id_id ON public.content_versions (content_id, id);
 
--- Resolve the circular reference now that content_versions exists
+-- Resolve the circular reference now that content_versions exists.
+-- Composite FK enforces that published_version_id belongs to this content item,
+-- preventing an editor from pointing a row at a version from another content item or org.
 ALTER TABLE public.contents
     ADD CONSTRAINT fk_contents_published_version
-    FOREIGN KEY (published_version_id)
-    REFERENCES public.content_versions(id)
+    FOREIGN KEY (id, published_version_id)
+    REFERENCES public.content_versions (content_id, id)
     ON DELETE SET NULL
     DEFERRABLE INITIALLY DEFERRED;
 
@@ -553,7 +557,14 @@ CREATE POLICY "Org members can view content media"
 
 CREATE POLICY "Org members can manage content media"
     ON public.content_media FOR INSERT TO authenticated
-    WITH CHECK (private.has_org_permission(private.org_id_from_content_version(content_version_id), 'content.edit'));
+    WITH CHECK (
+        private.has_org_permission(private.org_id_from_content_version(content_version_id), 'content.edit')
+        AND EXISTS (
+            SELECT 1 FROM public.media
+            WHERE id = media_id
+              AND organization_id = private.org_id_from_content_version(content_version_id)
+        )
+    );
 
 CREATE POLICY "Org members can remove content media"
     ON public.content_media FOR DELETE TO authenticated

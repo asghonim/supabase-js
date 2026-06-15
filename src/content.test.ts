@@ -414,7 +414,7 @@ describe('content blocks', () => {
     }
   })
 
-  it('replaceBlocks upserts on conflict (same block_order)', async () => {
+  it('replaceBlocks updates existing blocks', async () => {
     await db.replaceBlocks(versionId, [
       { block_order: 1, block_type: 'heading', data_json: { text: 'Updated Heading' } },
     ])
@@ -422,6 +422,34 @@ describe('content blocks', () => {
     const { data } = await db.listBlocks(versionId)
     const block1 = data!.find(b => b.block_order === 1)
     expect((block1!.data_json as { text: string }).text).toBe('Updated Heading')
+  })
+
+  it('replaceBlocks removes blocks absent from the new set', async () => {
+    await db.replaceBlocks(versionId, [
+      { block_order: 1, block_type: 'heading',   data_json: { text: 'A' } },
+      { block_order: 2, block_type: 'paragraph', data_json: { text: 'B' } },
+    ])
+
+    await db.replaceBlocks(versionId, [
+      { block_order: 1, block_type: 'heading', data_json: { text: 'A' } },
+    ])
+
+    const { data } = await db.listBlocks(versionId)
+    expect(data).toHaveLength(1)
+    expect(data![0].block_order).toBe(1)
+  })
+
+  it('replaceBlocks with empty array removes all blocks', async () => {
+    await db.replaceBlocks(versionId, [
+      { block_order: 1, block_type: 'heading', data_json: { text: 'X' } },
+    ])
+
+    const { data, error } = await db.replaceBlocks(versionId, [])
+    expect(error).toBeNull()
+    expect(data).toHaveLength(0)
+
+    const { data: listed } = await db.listBlocks(versionId)
+    expect(listed).toHaveLength(0)
   })
 })
 

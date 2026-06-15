@@ -166,13 +166,18 @@ export function createContentDb(supabase: SupabaseClient<Database>) {
         .order('block_order')
     },
 
-    replaceBlocks(versionId: number, blocks: ContentBlockInsert[]) {
+    async replaceBlocks(versionId: number, blocks: ContentBlockInsert[]) {
+      const { error } = await supabase
+        .from('content_blocks')
+        .delete()
+        .eq('content_version_id', versionId)
+      if (error) return { data: null, error }
+
+      if (blocks.length === 0) return { data: [] as ContentBlockRow[], error: null }
+
       return supabase
         .from('content_blocks')
-        .upsert(
-          blocks.map((b) => ({ ...b, content_version_id: versionId })),
-          { onConflict: 'content_version_id,block_order' },
-        )
+        .insert(blocks.map((b) => ({ ...b, content_version_id: versionId })))
         .select()
     },
 
