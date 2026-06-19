@@ -3,12 +3,16 @@
  *
  * Tables under test:
  *   conversations, conversation_participants, conversation_targets,
- *   messages, message_attachments, message_reactions, conversation_reads,
- *   message_versions
+ *   conversation_titles, messages, message_attachments, message_reactions,
+ *   conversation_reads, message_versions
  *
  * Conversations and participants are seeded via the admin client because
  * there is no user INSERT policy for conversations — apps manage membership
  * server-side.  User clients are tested for SELECT / INSERT governed by RLS.
+ *
+ * Messages and reactions are never updated/deleted directly by users; those
+ * paths go through the edit_message / delete_message / remove_message_reaction
+ * RPCs. Titles are event sourced through the conversation_titles table.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -28,7 +32,7 @@ async function seedConversation(tenantOrgId?: number, title?: string) {
 }
 
 async function addParticipant(
-  conversationId: string,
+  conversationId: number,
   accountId: number,
   role: 'owner' | 'admin' | 'member' = 'member',
 ) {
@@ -39,7 +43,7 @@ async function addParticipant(
 }
 
 async function seedMessage(
-  conversationId: string,
+  conversationId: number,
   senderAccountId: number,
   body = 'Hello, world.',
 ) {
@@ -62,7 +66,7 @@ describe('conversations RLS', () => {
   beforeAll(async () => {
     userA = await createTestUser('conv-rls-a')
     userB = await createTestUser('conv-rls-b')
-    org = await createTestOrg(userA.accountId, uniqueSlug('conv-rls-org'))
+    org = await createTestOrg(uniqueSlug('conv-rls-org'))
   })
 
   afterAll(async () => {
@@ -102,6 +106,88 @@ describe('conversations RLS', () => {
       .eq('id', conv.id)
     expect(error).toBeNull()
     expect(data).toHaveLength(1)
+  })
+})
+
+// ── conversation_titles (event-sourced title) ─────────────────────────────────
+//
+// Users no longer UPDATE conversations.title directly. They insert a new row
+// into conversation_titles; a trigger syncs the latest title back to the
+// denormalized conversations.title column.
+
+describe('conversation_titles', () => {
+  let userA: TestUser
+  let userB: TestUser
+
+  beforeAll(async () => {
+    userA = await createTestUser('conv-title-a')
+    userB = await createTestUser('conv-title-b')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+  })
+
+  it('participant can set a title and it syncs to conversations.title', async () => {
+    const conv = await seedConversation(undefined, 'Original title')
+    await addParticipant(conv.id, userA.accountId)
+
+    const { error } = await userA.client
+      .from('conversation_titles')
+      .insert({ conversation_id: conv.id, title: 'Renamed by participant' })
+    expect(error).toBeNull()
+
+    const { data } = await admin
+      .from('conversations')
+      .select('title')
+      .eq('id', conv.id)
+      .single()
+    expect(data!.title).toBe('Renamed by participant')
+  })
+
+  it('participant can view the title history', async () => {
+    const conv = await seedConversation()
+    await addParticipant(conv.id, userA.accountId)
+    await userA.client.from('conversation_titles').insert({ conversation_id: conv.id, title: 'First' })
+    await userA.client.from('conversation_titles').insert({ conversation_id: conv.id, title: 'Second' })
+
+    const { data, error } = await userA.client
+      .from('conversation_titles')
+      .select('title')
+      .eq('conversation_id', conv.id)
+      .order('created_at', { ascending: true })
+    expect(error).toBeNull()
+    expect(data!.map(t => t.title)).toEqual(['First', 'Second'])
+  })
+
+  it('non-participant cannot set a title', async () => {
+    const conv = await seedConversation(undefined, 'Untouched')
+    await addParticipant(conv.id, userA.accountId)
+
+    const { error } = await userB.client
+      .from('conversation_titles')
+      .insert({ conversation_id: conv.id, title: 'Hijacked' })
+    expect(error).not.toBeNull()
+
+    const { data } = await admin
+      .from('conversations')
+      .select('title')
+      .eq('id', conv.id)
+      .single()
+    expect(data!.title).toBe('Untouched')
+  })
+
+  it('non-participant cannot view titles', async () => {
+    const conv = await seedConversation()
+    await addParticipant(conv.id, userA.accountId)
+    await admin.from('conversation_titles').insert({ conversation_id: conv.id, title: 'Secret' })
+
+    const { data } = await userB.client
+      .from('conversation_titles')
+      .select('id')
+      .eq('conversation_id', conv.id)
+    expect(data).toHaveLength(0)
   })
 })
 
@@ -153,7 +239,7 @@ describe('messages RLS', () => {
 
     const { data, error } = await userA.client
       .from('messages')
-      .insert({ conversation_id: conv.id, sender_id: userA.accountId, body: 'Hi!' })
+      .insert({ conversation_id: conv.id, body: 'Hi!' })
       .select()
       .single()
     expect(error).toBeNull()
@@ -195,6 +281,96 @@ describe('messages RLS', () => {
       .select('id')
       .eq('id', msg.id)
     expect(data).toHaveLength(0)
+  })
+})
+
+describe('edit_message / delete_message (RPC)', () => {
+  let userA: TestUser
+  let userB: TestUser
+
+  beforeAll(async () => {
+    userA = await createTestUser('msg-edit-a')
+    userB = await createTestUser('msg-edit-b')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+  })
+
+  it('sender can edit their own message and a version is recorded', async () => {
+    const conv = await seedConversation()
+    await addParticipant(conv.id, userA.accountId)
+    const msg = await seedMessage(conv.id, userA.accountId, 'Original body')
+
+    const { error } = await userA.client.rpc('edit_message', {
+      p_message_id: msg.id,
+      p_body: 'Edited body',
+    })
+    expect(error).toBeNull()
+
+    const { data: row } = await admin
+      .from('messages')
+      .select('body, edited_at')
+      .eq('id', msg.id)
+      .single()
+    expect(row!.body).toBe('Edited body')
+    expect(row!.edited_at).not.toBeNull()
+
+    const { data: versions } = await admin
+      .from('message_versions')
+      .select('body')
+      .eq('message_id', msg.id)
+    expect(versions!.map(v => v.body)).toContain('Original body')
+  })
+
+  it('a non-sender cannot edit the message', async () => {
+    const conv = await seedConversation()
+    await addParticipant(conv.id, userA.accountId)
+    await addParticipant(conv.id, userB.accountId)
+    const msg = await seedMessage(conv.id, userA.accountId, 'Owned by A')
+
+    const { error } = await userB.client.rpc('edit_message', {
+      p_message_id: msg.id,
+      p_body: 'Tampered',
+    })
+    expect(error).not.toBeNull()
+
+    const { data: row } = await admin.from('messages').select('body').eq('id', msg.id).single()
+    expect(row!.body).toBe('Owned by A')
+  })
+
+  it('sender can soft-delete their own message', async () => {
+    const conv = await seedConversation()
+    await addParticipant(conv.id, userA.accountId)
+    const msg = await seedMessage(conv.id, userA.accountId)
+
+    const { error } = await userA.client.rpc('delete_message', { p_message_id: msg.id })
+    expect(error).toBeNull()
+
+    const { data: row } = await admin
+      .from('messages')
+      .select('deleted_at')
+      .eq('id', msg.id)
+      .single()
+    expect(row!.deleted_at).not.toBeNull()
+  })
+
+  it('a non-sender cannot delete the message', async () => {
+    const conv = await seedConversation()
+    await addParticipant(conv.id, userA.accountId)
+    await addParticipant(conv.id, userB.accountId)
+    const msg = await seedMessage(conv.id, userA.accountId)
+
+    const { error } = await userB.client.rpc('delete_message', { p_message_id: msg.id })
+    expect(error).not.toBeNull()
+
+    const { data: row } = await admin
+      .from('messages')
+      .select('deleted_at')
+      .eq('id', msg.id)
+      .single()
+    expect(row!.deleted_at).toBeNull()
   })
 })
 
@@ -284,7 +460,7 @@ describe('message_reactions RLS', () => {
 
     const { error: insertErr } = await userA.client
       .from('message_reactions')
-      .upsert({ message_id: msg.id, account_id: userA.accountId, reaction: '👍' })
+      .insert({ message_id: msg.id, reaction: '👍' })
     expect(insertErr).toBeNull()
 
     const { data } = await userA.client
@@ -314,12 +490,10 @@ describe('message_reactions RLS', () => {
       .from('message_reactions')
       .insert({ message_id: msg.id, account_id: userA.accountId, reaction: '🎉' })
 
-    const { error } = await userA.client
-      .from('message_reactions')
-      .delete()
-      .eq('message_id', msg.id)
-      .eq('account_id', userA.accountId)
-      .eq('reaction', '🎉')
+    const { error } = await userA.client.rpc('remove_message_reaction', {
+      p_message_id: msg.id,
+      p_reaction: '🎉',
+    })
     expect(error).toBeNull()
 
     const { data } = await admin
@@ -328,6 +502,29 @@ describe('message_reactions RLS', () => {
       .eq('message_id', msg.id)
       .eq('account_id', userA.accountId)
     expect(data!.map(r => r.reaction)).not.toContain('🎉')
+  })
+
+  it('a user cannot remove another account\'s reaction', async () => {
+    const conv = await seedConversation()
+    await addParticipant(conv.id, userA.accountId)
+    const msg = await seedMessage(conv.id, userA.accountId)
+
+    await admin
+      .from('message_reactions')
+      .insert({ message_id: msg.id, account_id: userA.accountId, reaction: '👏' })
+
+    const { error } = await userB.client.rpc('remove_message_reaction', {
+      p_message_id: msg.id,
+      p_reaction: '👏',
+    })
+    expect(error).toBeNull()
+
+    const { data } = await admin
+      .from('message_reactions')
+      .select('reaction')
+      .eq('message_id', msg.id)
+      .eq('account_id', userA.accountId)
+    expect(data!.map(r => r.reaction)).toContain('👏')
   })
 })
 
@@ -347,17 +544,15 @@ describe('conversation_reads RLS', () => {
     await deleteTestUser(userB.id)
   })
 
-  it('user can upsert and read their own read state', async () => {
+  it('user can insert and read their own read state', async () => {
     const conv = await seedConversation()
     await addParticipant(conv.id, userA.accountId)
     const msg = await seedMessage(conv.id, userA.accountId)
 
-    const { error } = await userA.client.from('conversation_reads').upsert({
+    const { error } = await userA.client.from('conversation_reads').insert({
       conversation_id:          conv.id,
-      account_id:               userA.accountId,
       last_read_message_id:     msg.id,
-      last_read_message_number: msg.message_number,
-      last_read_at:             new Date().toISOString(),
+      last_read_message_number: msg.message_number
     })
     expect(error).toBeNull()
 
@@ -402,7 +597,7 @@ describe('createCommentsDb', () => {
   beforeAll(async () => {
     userA = await createTestUser('cdb-a')
     userB = await createTestUser('cdb-b')
-    org = await createTestOrg(userA.accountId, uniqueSlug('cdb-org'))
+    org = await createTestOrg(uniqueSlug('cdb-org'))
   })
 
   afterAll(async () => {
@@ -498,6 +693,8 @@ describe('createCommentsDb', () => {
   })
 
   describe('editMessage', () => {
+    // editMessage now goes through the edit_message RPC, so it must be called
+    // with the sender's own client (service_role has no account context).
     it('updates body and sets edited_at', async () => {
       const conv = await adminDb.createConversation({ type: 'group' })
       await addParticipant(conv.data!.id, userA.accountId)
@@ -507,7 +704,8 @@ describe('createCommentsDb', () => {
         body:            'Original',
       })
 
-      const { data, error } = await adminDb.editMessage(msg.data!.id, 'Edited')
+      const userADb = createCommentsDb(userA.client)
+      const { data, error } = await userADb.editMessage(msg.data!.id, 'Edited')
       expect(error).toBeNull()
       expect(data!.body).toBe('Edited')
       expect(data!.edited_at).not.toBeNull()
@@ -515,7 +713,10 @@ describe('createCommentsDb', () => {
   })
 
   describe('softDeleteMessage', () => {
-    it('sets deleted_at and clears body', async () => {
+    // softDeleteMessage now goes through the delete_message RPC (sender's client).
+    // It sets deleted_at; RLS then hides the message from users (the body is
+    // retained for the service_role audit trail rather than nulled).
+    it('sets deleted_at and hides the message from the sender', async () => {
       const conv = await adminDb.createConversation({ type: 'group' })
       await addParticipant(conv.data!.id, userA.accountId)
       const msg = await adminDb.sendMessage({
@@ -524,16 +725,19 @@ describe('createCommentsDb', () => {
         body:            'Going away',
       })
 
-      const { error } = await adminDb.softDeleteMessage(msg.data!.id)
+      const userADb = createCommentsDb(userA.client)
+      const { error } = await userADb.softDeleteMessage(msg.data!.id)
       expect(error).toBeNull()
 
       const { data } = await admin
         .from('messages')
-        .select('deleted_at, body')
+        .select('deleted_at')
         .eq('id', msg.data!.id)
         .single()
       expect(data!.deleted_at).not.toBeNull()
-      expect(data!.body).toBeNull()
+
+      const visible = await userADb.getMessage(msg.data!.id)
+      expect(visible.data).toBeNull()
     })
   })
 
@@ -568,7 +772,10 @@ describe('createCommentsDb', () => {
       const { data: list } = await adminDb.listReactions(msg.data!.id)
       expect(list!.map(r => r.reaction)).toContain('🚀')
 
-      const { error: delErr } = await adminDb.removeReaction(msg.data!.id, userA.accountId, '🚀')
+      // removeReaction now goes through the remove_message_reaction RPC and only
+      // removes the caller's own reaction, so it runs on the owner's client.
+      const userADb = createCommentsDb(userA.client)
+      const { error: delErr } = await userADb.removeReaction(msg.data!.id, '🚀')
       expect(delErr).toBeNull()
 
       const { data: after } = await adminDb.listReactions(msg.data!.id)
@@ -589,7 +796,6 @@ describe('createCommentsDb', () => {
       const userADb = createCommentsDb(userA.client)
       const { error } = await userADb.markRead(
         conv.data!.id,
-        userA.accountId,
         msg.data!.id,
         msg.data!.message_number,
       )
@@ -611,7 +817,7 @@ describe('createCommentsDb', () => {
       })
 
       await adminDb.snapshotVersion(msg.data!.id, 'v1')
-      await adminDb.editMessage(msg.data!.id, 'v2')
+      await admin.from('messages').update({ body: 'v2' }).eq('id', msg.data!.id)
       await adminDb.snapshotVersion(msg.data!.id, 'v2')
 
       const { data, error } = await adminDb.listVersions(msg.data!.id)

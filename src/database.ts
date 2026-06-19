@@ -24,7 +24,7 @@ export type Database = {
         }
         Insert: {
           account_id: number
-          created_at: string
+          created_at?: string
           id?: never
           uid?: string
           url: string
@@ -56,7 +56,7 @@ export type Database = {
         }
         Insert: {
           account_id: number
-          created_at: string
+          created_at?: string
           id?: never
           name: string
           uid?: string
@@ -141,6 +141,69 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      acl_entries: {
+        Row: {
+          action: string
+          condition_json: Json | null
+          created_at: string
+          effect: string
+          id: number
+          organization_id: number | null
+          principal_id: number
+          priority: number
+          resource_id: number | null
+          resource_type: string
+          uid: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          action: string
+          condition_json?: Json | null
+          created_at?: string
+          effect: string
+          id?: never
+          organization_id?: number | null
+          principal_id: number
+          priority?: number
+          resource_id?: number | null
+          resource_type: string
+          uid?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          action?: string
+          condition_json?: Json | null
+          created_at?: string
+          effect?: string
+          id?: never
+          organization_id?: number | null
+          principal_id?: number
+          priority?: number
+          resource_id?: number | null
+          resource_type?: string
+          uid?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acl_entries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acl_entries_principal_id_fkey"
+            columns: ["principal_id"]
+            isOneToOne: false
+            referencedRelation: "principals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       addon_feature_entitlements: {
         Row: {
@@ -246,7 +309,6 @@ export type Database = {
           key: string
           name: string
           uid: string
-          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -256,7 +318,6 @@ export type Database = {
           key: string
           name: string
           uid?: string
-          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -266,7 +327,6 @@ export type Database = {
           key?: string
           name?: string
           uid?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -407,6 +467,7 @@ export type Database = {
           organization_id: number
           parent_category_id: number | null
           slug: string
+          uid: string
         }
         Insert: {
           created_at?: string
@@ -415,6 +476,7 @@ export type Database = {
           organization_id: number
           parent_category_id?: number | null
           slug: string
+          uid?: string
         }
         Update: {
           created_at?: string
@@ -423,6 +485,7 @@ export type Database = {
           organization_id?: number
           parent_category_id?: number | null
           slug?: string
+          uid?: string
         }
         Relationships: [
           {
@@ -446,22 +509,28 @@ export type Database = {
           block_order: number
           block_type: string
           content_version_id: number
+          created_at: string
           data_json: Json
           id: number
+          uid: string
         }
         Insert: {
           block_order: number
           block_type: string
           content_version_id: number
+          created_at?: string
           data_json?: Json
           id?: never
+          uid?: string
         }
         Update: {
           block_order?: number
           block_type?: string
           content_version_id?: number
+          created_at?: string
           data_json?: Json
           id?: never
+          uid?: string
         }
         Relationships: [
           {
@@ -477,14 +546,20 @@ export type Database = {
         Row: {
           category_id: number
           content_id: number
+          created_at: string
+          id: number
         }
         Insert: {
           category_id: number
           content_id: number
+          created_at?: string
+          id?: never
         }
         Update: {
           category_id?: number
           content_id?: number
+          created_at?: string
+          id?: never
         }
         Relationships: [
           {
@@ -511,7 +586,8 @@ export type Database = {
           id: number
           new_values_json: Json | null
           old_values_json: Json | null
-          performed_by_account_id: number | null
+          performed_by_account_id: number
+          uid: string
         }
         Insert: {
           action: string
@@ -520,7 +596,8 @@ export type Database = {
           id?: never
           new_values_json?: Json | null
           old_values_json?: Json | null
-          performed_by_account_id?: number | null
+          performed_by_account_id?: number
+          uid?: string
         }
         Update: {
           action?: string
@@ -529,7 +606,8 @@ export type Database = {
           id?: never
           new_values_json?: Json | null
           old_values_json?: Json | null
-          performed_by_account_id?: number | null
+          performed_by_account_id?: number
+          uid?: string
         }
         Relationships: [
           {
@@ -551,14 +629,20 @@ export type Database = {
       content_media: {
         Row: {
           content_version_id: number
+          created_at: string
+          id: number
           media_id: number
         }
         Insert: {
           content_version_id: number
+          created_at?: string
+          id?: never
           media_id: number
         }
         Update: {
           content_version_id?: number
+          created_at?: string
+          id?: never
           media_id?: number
         }
         Relationships: [
@@ -585,7 +669,7 @@ export type Database = {
           id: number
           organization_id: number
           slug: string
-          updated_at: string
+          uid: string
         }
         Insert: {
           created_at?: string
@@ -593,7 +677,7 @@ export type Database = {
           id?: never
           organization_id: number
           slug: string
-          updated_at?: string
+          uid?: string
         }
         Update: {
           created_at?: string
@@ -601,7 +685,7 @@ export type Database = {
           id?: never
           organization_id?: number
           slug?: string
-          updated_at?: string
+          uid?: string
         }
         Relationships: [
           {
@@ -616,14 +700,20 @@ export type Database = {
       content_tags: {
         Row: {
           content_id: number
+          created_at: string
+          id: number
           tag_id: number
         }
         Insert: {
           content_id: number
+          created_at?: string
+          id?: never
           tag_id: number
         }
         Update: {
           content_id?: number
+          created_at?: string
+          id?: never
           tag_id?: number
         }
         Relationships: [
@@ -653,7 +743,7 @@ export type Database = {
           seo_description: string | null
           seo_title: string | null
           title: string
-          updated_at: string
+          uid: string
         }
         Insert: {
           body_json?: Json
@@ -664,7 +754,7 @@ export type Database = {
           seo_description?: string | null
           seo_title?: string | null
           title: string
-          updated_at?: string
+          uid?: string
         }
         Update: {
           body_json?: Json
@@ -675,7 +765,7 @@ export type Database = {
           seo_description?: string | null
           seo_title?: string | null
           title?: string
-          updated_at?: string
+          uid?: string
         }
         Relationships: [
           {
@@ -695,6 +785,7 @@ export type Database = {
           name: string
           organization_id: number | null
           slug: string
+          uid: string
         }
         Insert: {
           created_at?: string
@@ -703,6 +794,7 @@ export type Database = {
           name: string
           organization_id?: number | null
           slug: string
+          uid?: string
         }
         Update: {
           created_at?: string
@@ -711,6 +803,7 @@ export type Database = {
           name?: string
           organization_id?: number | null
           slug?: string
+          uid?: string
         }
         Relationships: [
           {
@@ -727,36 +820,39 @@ export type Database = {
           body_json: Json
           content_id: number
           created_at: string
-          created_by_account_id: number | null
+          created_by_account_id: number
           id: number
           seo_description: string | null
           seo_title: string | null
           summary: string | null
           title: string
+          uid: string
           version_number: number
         }
         Insert: {
           body_json?: Json
           content_id: number
           created_at?: string
-          created_by_account_id?: number | null
+          created_by_account_id?: number
           id?: never
           seo_description?: string | null
           seo_title?: string | null
           summary?: string | null
           title: string
+          uid?: string
           version_number: number
         }
         Update: {
           body_json?: Json
           content_id?: number
           created_at?: string
-          created_by_account_id?: number | null
+          created_by_account_id?: number
           id?: never
           seo_description?: string | null
           seo_title?: string | null
           summary?: string | null
           title?: string
+          uid?: string
           version_number?: number
         }
         Relationships: [
@@ -780,7 +876,8 @@ export type Database = {
         Row: {
           content_type_id: number
           created_at: string
-          created_by_account_id: number | null
+          created_by_account_id: number
+          deleted_at: string | null
           id: number
           organization_id: number
           publish_at: string | null
@@ -788,13 +885,14 @@ export type Database = {
           slug: string
           status: string
           title: string
+          uid: string
           unpublish_at: string | null
-          updated_at: string
         }
         Insert: {
           content_type_id: number
           created_at?: string
-          created_by_account_id?: number | null
+          created_by_account_id?: number
+          deleted_at?: string | null
           id?: never
           organization_id: number
           publish_at?: string | null
@@ -802,13 +900,14 @@ export type Database = {
           slug: string
           status?: string
           title: string
+          uid?: string
           unpublish_at?: string | null
-          updated_at?: string
         }
         Update: {
           content_type_id?: number
           created_at?: string
-          created_by_account_id?: number | null
+          created_by_account_id?: number
+          deleted_at?: string | null
           id?: never
           organization_id?: number
           publish_at?: string | null
@@ -816,8 +915,8 @@ export type Database = {
           slug?: string
           status?: string
           title?: string
+          uid?: string
           unpublish_at?: string | null
-          updated_at?: string
         }
         Relationships: [
           {
@@ -843,10 +942,10 @@ export type Database = {
           },
           {
             foreignKeyName: "fk_contents_published_version"
-            columns: ["published_version_id"]
+            columns: ["id", "published_version_id"]
             isOneToOne: false
             referencedRelation: "content_versions"
-            referencedColumns: ["id"]
+            referencedColumns: ["content_id", "id"]
           },
         ]
       }
@@ -907,7 +1006,7 @@ export type Database = {
           uid: string
         }
         Insert: {
-          account_id: number
+          account_id?: number
           conversation_id: number
           created_at?: string
           id?: never
@@ -980,6 +1079,38 @@ export type Database = {
             foreignKeyName: "conversation_targets_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: true
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_titles: {
+        Row: {
+          conversation_id: number
+          created_at: string
+          id: number
+          title: string
+          uid: string
+        }
+        Insert: {
+          conversation_id: number
+          created_at?: string
+          id?: never
+          title: string
+          uid?: string
+        }
+        Update: {
+          conversation_id?: number
+          created_at?: string
+          id?: never
+          title?: string
+          uid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_titles_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
@@ -1110,7 +1241,6 @@ export type Database = {
           type: Database["public"]["Enums"]["feature_type"]
           uid: string
           unit: string | null
-          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -1122,7 +1252,6 @@ export type Database = {
           type: Database["public"]["Enums"]["feature_type"]
           uid?: string
           unit?: string | null
-          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -1134,7 +1263,6 @@ export type Database = {
           type?: Database["public"]["Enums"]["feature_type"]
           uid?: string
           unit?: string | null
-          updated_at?: string
         }
         Relationships: []
       }
@@ -1272,7 +1400,6 @@ export type Database = {
           total_amount: number
           type: Database["public"]["Enums"]["invoice_type"]
           uid: string
-          updated_at: string
           voided_at: string | null
         }
         Insert: {
@@ -1307,7 +1434,6 @@ export type Database = {
           total_amount?: number
           type?: Database["public"]["Enums"]["invoice_type"]
           uid?: string
-          updated_at?: string
           voided_at?: string | null
         }
         Update: {
@@ -1342,7 +1468,6 @@ export type Database = {
           total_amount?: number
           type?: Database["public"]["Enums"]["invoice_type"]
           uid?: string
-          updated_at?: string
           voided_at?: string | null
         }
         Relationships: [
@@ -1473,7 +1598,8 @@ export type Database = {
       media: {
         Row: {
           created_at: string
-          created_by_account_id: number | null
+          created_by_account_id: number
+          deleted_at: string | null
           filename: string
           folder_id: number | null
           height: number | null
@@ -1482,11 +1608,13 @@ export type Database = {
           organization_id: number
           size_bytes: number | null
           storage_path: string
+          uid: string
           width: number | null
         }
         Insert: {
           created_at?: string
-          created_by_account_id?: number | null
+          created_by_account_id?: number
+          deleted_at?: string | null
           filename: string
           folder_id?: number | null
           height?: number | null
@@ -1495,11 +1623,13 @@ export type Database = {
           organization_id: number
           size_bytes?: number | null
           storage_path: string
+          uid?: string
           width?: number | null
         }
         Update: {
           created_at?: string
-          created_by_account_id?: number | null
+          created_by_account_id?: number
+          deleted_at?: string | null
           filename?: string
           folder_id?: number | null
           height?: number | null
@@ -1508,6 +1638,7 @@ export type Database = {
           organization_id?: number
           size_bytes?: number | null
           storage_path?: string
+          uid?: string
           width?: number | null
         }
         Relationships: [
@@ -1541,6 +1672,7 @@ export type Database = {
           name: string
           organization_id: number
           parent_folder_id: number | null
+          uid: string
         }
         Insert: {
           created_at?: string
@@ -1548,6 +1680,7 @@ export type Database = {
           name: string
           organization_id: number
           parent_folder_id?: number | null
+          uid?: string
         }
         Update: {
           created_at?: string
@@ -1555,6 +1688,7 @@ export type Database = {
           name?: string
           organization_id?: number
           parent_folder_id?: number | null
+          uid?: string
         }
         Relationships: [
           {
@@ -1624,7 +1758,7 @@ export type Database = {
           uid: string
         }
         Insert: {
-          account_id: number
+          account_id?: number
           created_at?: string
           id?: never
           message_id: number
@@ -1710,7 +1844,7 @@ export type Database = {
           id?: never
           message_number?: number
           parent_message_id?: number | null
-          sender_id: number
+          sender_id?: number
           uid?: string
         }
         Update: {
@@ -1765,7 +1899,6 @@ export type Database = {
           sent_at: string | null
           status: Database["public"]["Enums"]["notification_delivery_status"]
           uid: string
-          updated_at: string
         }
         Insert: {
           attempts?: number
@@ -1782,7 +1915,6 @@ export type Database = {
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_delivery_status"]
           uid?: string
-          updated_at?: string
         }
         Update: {
           attempts?: number
@@ -1799,7 +1931,6 @@ export type Database = {
           sent_at?: string | null
           status?: Database["public"]["Enums"]["notification_delivery_status"]
           uid?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -1979,10 +2110,9 @@ export type Database = {
           is_enabled: boolean
           notification_type: string
           uid: string
-          updated_at: string
         }
         Insert: {
-          account_id: number
+          account_id?: number
           channel: Database["public"]["Enums"]["notification_channel"]
           created_at?: string
           frequency?: Database["public"]["Enums"]["notification_frequency"]
@@ -1990,7 +2120,6 @@ export type Database = {
           is_enabled?: boolean
           notification_type: string
           uid?: string
-          updated_at?: string
         }
         Update: {
           account_id?: number
@@ -2001,7 +2130,6 @@ export type Database = {
           is_enabled?: boolean
           notification_type?: string
           uid?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -2066,7 +2194,6 @@ export type Database = {
           subject_template: string | null
           type: string
           uid: string
-          updated_at: string
           version: number
         }
         Insert: {
@@ -2079,7 +2206,6 @@ export type Database = {
           subject_template?: string | null
           type: string
           uid?: string
-          updated_at?: string
           version?: number
         }
         Update: {
@@ -2092,7 +2218,6 @@ export type Database = {
           subject_template?: string | null
           type?: string
           uid?: string
-          updated_at?: string
           version?: number
         }
         Relationships: []
@@ -2340,7 +2465,6 @@ export type Database = {
           processed_at: string | null
           status: Database["public"]["Enums"]["payment_status"]
           uid: string
-          updated_at: string
         }
         Insert: {
           amount: number
@@ -2360,7 +2484,6 @@ export type Database = {
           processed_at?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           uid?: string
-          updated_at?: string
         }
         Update: {
           amount?: number
@@ -2380,7 +2503,6 @@ export type Database = {
           processed_at?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           uid?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -2653,42 +2775,168 @@ export type Database = {
         }
         Relationships: []
       }
+      principal_memberships: {
+        Row: {
+          created_at: string
+          member_principal_id: number
+          parent_principal_id: number
+        }
+        Insert: {
+          created_at?: string
+          member_principal_id: number
+          parent_principal_id: number
+        }
+        Update: {
+          created_at?: string
+          member_principal_id?: number
+          parent_principal_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "principal_memberships_member_principal_id_fkey"
+            columns: ["member_principal_id"]
+            isOneToOne: false
+            referencedRelation: "principals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "principal_memberships_parent_principal_id_fkey"
+            columns: ["parent_principal_id"]
+            isOneToOne: false
+            referencedRelation: "principals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      principals: {
+        Row: {
+          account_id: number | null
+          created_at: string
+          id: number
+          name: string
+          organization_id: number | null
+          principal_type: string
+          uid: string
+        }
+        Insert: {
+          account_id?: number | null
+          created_at?: string
+          id?: never
+          name: string
+          organization_id?: number | null
+          principal_type: string
+          uid?: string
+        }
+        Update: {
+          account_id?: number | null
+          created_at?: string
+          id?: never
+          name?: string
+          organization_id?: number | null
+          principal_type?: string
+          uid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "principals_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "principals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resources: {
+        Row: {
+          created_at: string
+          id: number
+          organization_id: number | null
+          parent_id: number | null
+          resource_id: number | null
+          resource_type: string
+          uid: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          organization_id?: number | null
+          parent_id?: number | null
+          resource_id?: number | null
+          resource_type: string
+          uid?: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          organization_id?: number | null
+          parent_id?: number | null
+          resource_id?: number | null
+          resource_type?: string
+          uid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resources_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seo_metadata: {
         Row: {
           canonical_url: string | null
           content_id: number
           created_at: string
+          id: number
           meta_description: string | null
           meta_title: string | null
           og_description: string | null
           og_image_id: number | null
           og_title: string | null
           robots: string
-          updated_at: string
+          uid: string
         }
         Insert: {
           canonical_url?: string | null
           content_id: number
           created_at?: string
+          id?: never
           meta_description?: string | null
           meta_title?: string | null
           og_description?: string | null
           og_image_id?: number | null
           og_title?: string | null
           robots?: string
-          updated_at?: string
+          uid?: string
         }
         Update: {
           canonical_url?: string | null
           content_id?: number
           created_at?: string
+          id?: never
           meta_description?: string | null
           meta_title?: string | null
           og_description?: string | null
           og_image_id?: number | null
           og_title?: string | null
           robots?: string
-          updated_at?: string
+          uid?: string
         }
         Relationships: [
           {
@@ -2719,7 +2967,6 @@ export type Database = {
           status: string
           subscription_id: number
           uid: string
-          updated_at: string
         }
         Insert: {
           addon_version_id: number
@@ -2732,7 +2979,6 @@ export type Database = {
           status?: string
           subscription_id: number
           uid?: string
-          updated_at?: string
         }
         Update: {
           addon_version_id?: number
@@ -2745,7 +2991,6 @@ export type Database = {
           status?: string
           subscription_id?: number
           uid?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -2885,7 +3130,6 @@ export type Database = {
           status: Database["public"]["Enums"]["contract_status"]
           subscription_id: number | null
           uid: string
-          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -2902,7 +3146,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["contract_status"]
           subscription_id?: number | null
           uid?: string
-          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -2919,7 +3162,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["contract_status"]
           subscription_id?: number | null
           uid?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -3085,7 +3327,6 @@ export type Database = {
           trial_end: string | null
           trial_start: string | null
           uid: string
-          updated_at: string
         }
         Insert: {
           billing_anchor_day?: number | null
@@ -3108,7 +3349,6 @@ export type Database = {
           trial_end?: string | null
           trial_start?: string | null
           uid?: string
-          updated_at?: string
         }
         Update: {
           billing_anchor_day?: number | null
@@ -3131,7 +3371,6 @@ export type Database = {
           trial_end?: string | null
           trial_start?: string | null
           uid?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -3157,6 +3396,7 @@ export type Database = {
           name: string
           organization_id: number
           slug: string
+          uid: string
         }
         Insert: {
           created_at?: string
@@ -3164,6 +3404,7 @@ export type Database = {
           name: string
           organization_id: number
           slug: string
+          uid?: string
         }
         Update: {
           created_at?: string
@@ -3171,6 +3412,7 @@ export type Database = {
           name?: string
           organization_id?: number
           slug?: string
+          uid?: string
         }
         Relationships: [
           {
@@ -3511,17 +3753,154 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_content: { Args: { p_content_id: number }; Returns: undefined }
       archive_notification: { Args: { p_inbox_id: number }; Returns: undefined }
+      delete_message: { Args: { p_message_id: number }; Returns: undefined }
+      edit_message: {
+        Args: { p_body: string; p_message_id: number }
+        Returns: undefined
+      }
       get_my_org_permissions: { Args: { p_org_id: number }; Returns: string[] }
       get_my_platform_permissions: { Args: never; Returns: string[] }
+      has_permission: {
+        Args: {
+          p_action: string
+          p_organization_id?: number
+          p_resource_id?: number
+          p_resource_type: string
+        }
+        Returns: boolean
+      }
       mark_all_notifications_read: { Args: never; Returns: undefined }
       mark_notification_read: {
         Args: { p_inbox_id: number }
         Returns: undefined
       }
+      my_account_id: { Args: never; Returns: number }
+      publish_content: {
+        Args: { p_content_id: number; p_version_id: number }
+        Returns: undefined
+      }
+      release_wallet_hold: { Args: { p_hold_id: number }; Returns: undefined }
+      remove_content_category: {
+        Args: { p_category_id: number; p_content_id: number }
+        Returns: undefined
+      }
+      remove_content_media: {
+        Args: { p_content_version_id: number; p_media_id: number }
+        Returns: undefined
+      }
+      remove_content_tag: {
+        Args: { p_content_id: number; p_tag_id: number }
+        Returns: undefined
+      }
+      remove_message_reaction: {
+        Args: { p_message_id: number; p_reaction: string }
+        Returns: undefined
+      }
+      replace_content_blocks: {
+        Args: { p_blocks: Json; p_content_version_id: number }
+        Returns: undefined
+      }
+      revoke_api_key: { Args: { p_api_key_id: number }; Returns: undefined }
+      set_ticket_status: {
+        Args: {
+          p_status: Database["public"]["Enums"]["ticket_status"]
+          p_ticket_id: number
+        }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      soft_delete_content: {
+        Args: { p_content_id: number }
+        Returns: undefined
+      }
+      soft_delete_media: { Args: { p_media_id: number }; Returns: undefined }
+      submit_content_for_review: {
+        Args: { p_content_id: number }
+        Returns: undefined
+      }
+      unpublish_content: { Args: { p_content_id: number }; Returns: undefined }
       unread_notification_count: { Args: never; Returns: number }
+      update_category: {
+        Args: {
+          p_id: number
+          p_name?: string
+          p_parent_category_id?: number
+          p_slug?: string
+        }
+        Returns: undefined
+      }
+      update_content: {
+        Args: {
+          p_content_type_id: number
+          p_id: number
+          p_publish_at?: string
+          p_slug: string
+          p_title: string
+          p_unpublish_at?: string
+        }
+        Returns: undefined
+      }
+      update_content_snippet: {
+        Args: { p_data_json: Json; p_id: number; p_slug: string }
+        Returns: undefined
+      }
+      update_content_translation: {
+        Args: {
+          p_body_json: Json
+          p_content_id: number
+          p_language: string
+          p_seo_description?: string
+          p_seo_title?: string
+          p_title: string
+        }
+        Returns: undefined
+      }
+      update_content_type: {
+        Args: {
+          p_description?: string
+          p_id: number
+          p_name: string
+          p_slug: string
+        }
+        Returns: undefined
+      }
+      update_media: {
+        Args: {
+          p_filename?: string
+          p_folder_id?: number
+          p_height?: number
+          p_id: number
+          p_mime_type?: string
+          p_size_bytes?: number
+          p_storage_path?: string
+          p_width?: number
+        }
+        Returns: undefined
+      }
+      update_media_folder: {
+        Args: { p_id: number; p_name?: string; p_parent_folder_id?: number }
+        Returns: undefined
+      }
+      update_seo_metadata: {
+        Args: {
+          p_canonical_url?: string
+          p_content_id: number
+          p_meta_description?: string
+          p_meta_title?: string
+          p_og_description?: string
+          p_og_image_id?: number
+          p_og_title?: string
+          p_robots?: string
+        }
+        Returns: undefined
+      }
+      update_tag: {
+        Args: { p_id: number; p_name: string; p_slug: string }
+        Returns: undefined
+      }
       wallet_available_balance: {
         Args: { p_wallet_id: number }
         Returns: number

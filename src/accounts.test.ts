@@ -28,10 +28,9 @@ describe('account_names and account_avatars RLS', () => {
 
   describe('account_names', () => {
     it('owner can insert their own name', async () => {
-      // created_at is required by generated types; the trigger overwrites it before insert
       const { error } = await userA.client
         .from('account_names')
-        .insert({ account_id: userA.accountId, name: 'Alice', created_at: new Date().toISOString() })
+        .insert({ account_id: userA.accountId, name: 'Alice' })
       expect(error).toBeNull()
     })
 
@@ -47,7 +46,7 @@ describe('account_names and account_avatars RLS', () => {
     it('user cannot insert into another account', async () => {
       const { error } = await userB.client
         .from('account_names')
-        .insert({ account_id: userA.accountId, name: 'Hacker', created_at: new Date().toISOString() })
+        .insert({ account_id: userA.accountId, name: 'Hacker' })
       expect(error).not.toBeNull()
       expect(error!.code).toBe('42501') // RLS violation
     })
@@ -71,7 +70,7 @@ describe('account_names and account_avatars RLS', () => {
       expect(data?.some(r => r.name === 'Alice')).toBe(true)
     })
 
-    it('created_at is set automatically by trigger', async () => {
+    it('created_at is populated automatically via DEFAULT NOW()', async () => {
       const { data, error } = await admin
         .from('account_names')
         .select('created_at')
@@ -81,6 +80,14 @@ describe('account_names and account_avatars RLS', () => {
       expect(error).toBeNull()
       expect(data!.created_at).toBeTruthy()
       expect(new Date(data!.created_at).getTime()).toBeGreaterThan(0)
+    })
+
+    it('cannot supply created_at explicitly — column privilege denied', async () => {
+      const { error } = await userA.client
+        .from('account_names')
+        .insert({ account_id: userA.accountId, name: 'TimestampHack', created_at: '1999-01-01T00:00:00Z' })
+      expect(error).not.toBeNull()
+      expect(error!.code).toBe('42501')
     })
   })
 
@@ -92,7 +99,7 @@ describe('account_names and account_avatars RLS', () => {
     it('owner can insert their own avatar', async () => {
       const { error } = await userA.client
         .from('account_avatars')
-        .insert({ account_id: userA.accountId, url: avatarUrl, created_at: new Date().toISOString() })
+        .insert({ account_id: userA.accountId, url: avatarUrl })
       expect(error).toBeNull()
     })
 
@@ -108,7 +115,7 @@ describe('account_names and account_avatars RLS', () => {
     it('user cannot insert avatar into another account', async () => {
       const { error } = await userB.client
         .from('account_avatars')
-        .insert({ account_id: userA.accountId, url: 'https://evil.com/hack.png', created_at: new Date().toISOString() })
+        .insert({ account_id: userA.accountId, url: 'https://evil.com/hack.png' })
       expect(error).not.toBeNull()
       expect(error!.code).toBe('42501')
     })
@@ -125,8 +132,16 @@ describe('account_names and account_avatars RLS', () => {
     it('url must be between 1 and 2048 characters (check constraint)', async () => {
       const { error } = await admin
         .from('account_avatars')
-        .insert({ account_id: userA.accountId, url: 'x'.repeat(2049), created_at: new Date().toISOString() })
+        .insert({ account_id: userA.accountId, url: 'x'.repeat(2049) })
       expect(error).not.toBeNull()
+    })
+
+    it('cannot supply created_at explicitly — column privilege denied', async () => {
+      const { error } = await userA.client
+        .from('account_avatars')
+        .insert({ account_id: userA.accountId, url: 'https://example.com/ts-hack.png', created_at: '1999-01-01T00:00:00Z' })
+      expect(error).not.toBeNull()
+      expect(error!.code).toBe('42501')
     })
   })
 

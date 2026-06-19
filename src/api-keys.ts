@@ -91,13 +91,17 @@ export function createApiKeysDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    revoke(id: number) {
-      return db
-        .from('api_keys')
-        .update({ revoked_at: new Date().toISOString() })
-        .eq('id', id)
-        .select('id, revoked_at')
-        .single()
+    /**
+     * Revokes an API key through the revoke_api_key RPC. Users may not UPDATE
+     * api_keys directly; the function requires the apikey.create org permission.
+     *
+     * Must be called with the acting user's client — service_role has no
+     * account context and will be rejected by the permission check.
+     */
+    async revoke(id: number) {
+      const { error } = await db.rpc('revoke_api_key', { p_api_key_id: id })
+      if (error) return { data: null, error }
+      return db.from('api_keys').select('id, revoked_at').eq('id', id).single()
     },
 
     updateScopes(id: number, scopes: string[]) {

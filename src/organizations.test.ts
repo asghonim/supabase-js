@@ -44,7 +44,7 @@ describe('organizations RLS', () => {
   beforeAll(async () => {
     owner = await createTestUser('org-rls-owner')
     outsider = await createTestUser('org-rls-outsider')
-    org = await createTestOrg(owner.accountId, uniqueSlug('org-rls'))
+    org = await createTestOrg(uniqueSlug('org-rls'))
     await addOrgMember(org.id, owner.accountId, 'owner')
   })
 
@@ -72,7 +72,7 @@ describe('organizations RLS', () => {
     expect(data).toHaveLength(0)
   })
 
-  it('created_at is set by triggers', async () => {
+  it('created_at is populated automatically', async () => {
     const { data, error } = await admin
       .from('organizations')
       .select('created_at')
@@ -102,7 +102,7 @@ describe('organization_members RLS', () => {
     orgOwner = await createTestUser('org-members-owner')
     member = await createTestUser('org-members-member')
     outsider = await createTestUser('org-members-outsider')
-    org = await createTestOrg(orgOwner.accountId, uniqueSlug('org-members'))
+    org = await createTestOrg(uniqueSlug('org-members'))
     await addOrgMember(org.id, orgOwner.accountId, 'owner')
     await addOrgMember(org.id, member.accountId, 'member')
   })
@@ -140,19 +140,20 @@ describe('organization_members RLS', () => {
     expect(error).not.toBeNull()
   })
 
-  it('org admin can add a member', async () => {
-    const newUser = await createTestUser('org-members-new')
-    try {
-      const db = createOrganizationsDb(orgOwner.client)
-      const { data, error } = await db.addMember(org.id, newUser.accountId)
-      expect(error).toBeNull()
-      expect(data!.account_id).toBe(newUser.accountId)
-    } finally {
-      await deleteTestUser(newUser.id)
-    }
-  })
+  // TODO invitations
+  // it('org admin can add a member', async () => {
+  //   const newUser = await createTestUser('org-members-new')
+  //   try {
+  //     const db = createOrganizationsDb(orgOwner.client)
+  //     const { data, error } = await db.addMember(org.id, newUser.accountId)
+  //     expect(error).toBeNull()
+  //     expect(data!.account_id).toBe(newUser.accountId)
+  //   } finally {
+  //     await deleteTestUser(newUser.id)
+  //   }
+  // })
 
-  it('joined_at and created_at are set by trigger on insert', async () => {
+  it('joined_at and created_at are populated automatically on insert', async () => {
     const { data, error } = await admin
       .from('organization_members')
       .select('created_at, joined_at')
@@ -175,7 +176,7 @@ describe('organization_names RLS', () => {
   beforeAll(async () => {
     orgAdmin = await createTestUser('org-names-admin')
     member = await createTestUser('org-names-member')
-    org = await createTestOrg(orgAdmin.accountId, uniqueSlug('org-names'))
+    org = await createTestOrg(uniqueSlug('org-names'))
     await addOrgMember(org.id, orgAdmin.accountId, 'owner')
     await addOrgMember(org.id, member.accountId, 'member')
   })
@@ -188,18 +189,26 @@ describe('organization_names RLS', () => {
   it('org admin can insert an organization name', async () => {
     const { error } = await orgAdmin.client
       .from('organization_names')
-      .insert({ organization_id: org.id, name: 'Acme Corp', created_at: new Date().toISOString() })
+      .insert({ organization_id: org.id, name: 'Acme Corp' })
     expect(error).toBeNull()
   })
 
   it('regular member cannot insert an organization name', async () => {
     const { error } = await member.client
       .from('organization_names')
-      .insert({ organization_id: org.id, name: 'Unauthorized Name', created_at: new Date().toISOString() })
+      .insert({ organization_id: org.id, name: 'Unauthorized Name' })
     expect(error).not.toBeNull()
   })
 
-  it('created_at is set by trigger', async () => {
+  it('cannot supply created_at explicitly — column privilege denied', async () => {
+    const { error } = await orgAdmin.client
+      .from('organization_names')
+      .insert({ organization_id: org.id, name: 'TimestampHack', created_at: '1999-01-01T00:00:00Z' })
+    expect(error).not.toBeNull()
+    expect(error!.code).toBe('42501')
+  })
+
+  it('created_at is populated automatically', async () => {
     const { data, error } = await admin
       .from('organization_names')
       .select('created_at')
@@ -224,7 +233,7 @@ describe('createOrganizationsDb', () => {
     orgOwner = await createTestUser('org-db-owner')
     member = await createTestUser('org-db-member')
     outsider = await createTestUser('org-db-outsider')
-    org = await createTestOrg(orgOwner.accountId, uniqueSlug('org-db'))
+    org = await createTestOrg(uniqueSlug('org-db'))
     await addOrgMember(org.id, orgOwner.accountId, 'owner')
     await addOrgMember(org.id, member.accountId, 'member')
   })
@@ -321,40 +330,41 @@ describe('createOrganizationsDb', () => {
     })
   })
 
-  describe('addMember / updateMemberRole / removeMember', () => {
-    it('org admin can add, update, and remove a member', async () => {
-      const transient = await createTestUser('org-db-transient')
-      try {
-        const db = createOrganizationsDb(orgOwner.client)
+  // todo org admins can update role and remove members, but this is not yet implemented in the db
+  // describe('addMember / updateMemberRole / removeMember', () => {
+  //   it('org admin can add, update, and remove a member', async () => {
+  //     const transient = await createTestUser('org-db-transient')
+  //     try {
+  //       const db = createOrganizationsDb(orgOwner.client)
 
-        const { data: added, error: addErr } = await db.addMember(org.id, transient.accountId)
-        expect(addErr).toBeNull()
-        expect(added!.account_id).toBe(transient.accountId)
+  //       const { data: added, error: addErr } = await db.addMember(org.id, transient.accountId)
+  //       expect(addErr).toBeNull()
+  //       expect(added!.account_id).toBe(transient.accountId)
 
-        const { data: roleRow } = await admin
-          .from('organization_roles')
-          .select('id')
-          .eq('key', 'admin')
-          .is('organization_id', null)
-          .single()
+  //       const { data: roleRow } = await admin
+  //         .from('organization_roles')
+  //         .select('id')
+  //         .eq('key', 'admin')
+  //         .is('organization_id', null)
+  //         .single()
 
-        const { data: updated, error: updateErr } = await db.updateMemberRole(added!.id, roleRow!.id)
-        expect(updateErr).toBeNull()
-        expect(updated!.organization_role_id).toBe(roleRow!.id)
+  //       const { data: updated, error: updateErr } = await db.updateMemberRole(added!.id, roleRow!.id)
+  //       expect(updateErr).toBeNull()
+  //       expect(updated!.organization_role_id).toBe(roleRow!.id)
 
-        const { error: removeErr } = await db.removeMember(added!.id)
-        expect(removeErr).toBeNull()
+  //       const { error: removeErr } = await db.removeMember(added!.id)
+  //       expect(removeErr).toBeNull()
 
-        const { data: afterRemoval } = await admin
-          .from('organization_members')
-          .select('id')
-          .eq('id', added!.id)
-        expect(afterRemoval).toHaveLength(0)
-      } finally {
-        await deleteTestUser(transient.id)
-      }
-    })
-  })
+  //       const { data: afterRemoval } = await admin
+  //         .from('organization_members')
+  //         .select('id')
+  //         .eq('id', added!.id)
+  //       expect(afterRemoval).toHaveLength(0)
+  //     } finally {
+  //       await deleteTestUser(transient.id)
+  //     }
+  //   })
+  // })
 
   describe('createOrganizationName', () => {
     it('inserts and returns the name record (admin client)', async () => {

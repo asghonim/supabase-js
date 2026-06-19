@@ -13,56 +13,17 @@
 -- ================================================================
 
 CREATE TYPE public.billing_provider AS ENUM ('stripe', 'paddle', 'manual');
-
-CREATE TABLE public.organization_billing_emails (
-    id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    uid             UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
-    organization_id BIGINT      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-    billing_email   TEXT        NOT NULL CHECK (char_length(billing_email) BETWEEN 1 AND 320),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.organization_billing_emails TO authenticated, service_role;
-ALTER TABLE public.organization_billing_emails ENABLE ROW LEVEL SECURITY;
-
-CREATE INDEX idx_organization_billing_emails_org ON public.organization_billing_emails(organization_id);
-
-CREATE OR REPLACE FUNCTION private.on_insert_organization_billing_emails() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_organization_billing_emails BEFORE INSERT ON public.organization_billing_emails FOR EACH ROW EXECUTE FUNCTION private.on_insert_organization_billing_emails();
-
-CREATE OR REPLACE FUNCTION private.is_org_billing(p_org_id BIGINT)
-RETURNS BOOLEAN AS $$
-    SELECT private.has_org_permission(p_org_id, 'billing.manage');
-$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
-
-CREATE POLICY "Allow org admins to insert billing emails"
-    ON public.organization_billing_emails FOR INSERT
-    TO authenticated
-    WITH CHECK (exists(SELECT 1 FROM public.organizations o WHERE o.id = organization_id AND private.is_org_admin(o.id)));
-
-CREATE POLICY "Allow org admins to view billing emails"
-    ON public.organization_billing_emails FOR SELECT
-    TO authenticated
-    USING (private.is_org_admin(organization_id));
-
-
--- ================================================================
--- ENUMS
--- ================================================================
-
 CREATE TYPE public.billing_interval  AS ENUM ('daily', 'weekly', 'monthly', 'yearly');
-
 CREATE TYPE public.proration_behavior AS ENUM (
     'create_prorations',
     'none',
     'always_invoice'
-);
-
+    );
 CREATE TYPE public.payment_behavior AS ENUM (
     'default_incomplete',
     'error_if_incomplete',
     'allow_incomplete'
-);
-
+    );
 CREATE TYPE public.subscription_status AS ENUM (
     'incomplete',
     'incomplete_expired',
@@ -72,8 +33,7 @@ CREATE TYPE public.subscription_status AS ENUM (
     'paused',
     'cancelled',
     'expired'
-);
-
+    );
 CREATE TYPE public.change_request_type AS ENUM (
     'create',
     'upgrade',
@@ -86,8 +46,7 @@ CREATE TYPE public.change_request_type AS ENUM (
     'remove_seats',
     'add_addon',
     'remove_addon'
-);
-
+    );
 CREATE TYPE public.change_request_status AS ENUM (
     'pending',
     'processing',
@@ -96,22 +55,19 @@ CREATE TYPE public.change_request_status AS ENUM (
     'failed',
     'cancelled',
     'expired'
-);
-
+    );
 CREATE TYPE public.invoice_status AS ENUM (
     'draft',
     'open',
     'paid',
     'void',
     'uncollectible'
-);
-
+    );
 CREATE TYPE public.invoice_type AS ENUM (
     'subscription',
     'one_time',
     'credit_note'
-);
-
+    );
 CREATE TYPE public.billing_reason AS ENUM (
     'subscription_create',
     'subscription_cycle',
@@ -119,8 +75,7 @@ CREATE TYPE public.billing_reason AS ENUM (
     'subscription_threshold',
     'manual',
     'upcoming'
-);
-
+    );
 CREATE TYPE public.payment_status AS ENUM (
     'pending',
     'processing',
@@ -129,91 +84,117 @@ CREATE TYPE public.payment_status AS ENUM (
     'cancelled',
     'refunded',
     'partially_refunded'
-);
-
+    );
 CREATE TYPE public.payment_method AS ENUM (
     'card',
     'bank_transfer',
     'wallet',
     'manual',
     'crypto'
-);
-
+    );
 CREATE TYPE public.feature_type AS ENUM (
     'boolean',
     'limit',
     'metered'
-);
-
+    );
 CREATE TYPE public.feature_reset_period AS ENUM (
     'daily',
     'weekly',
     'monthly',
     'yearly',
     'never'
-);
-
+    );
 CREATE TYPE public.org_member_role AS ENUM (
     'owner',
     'admin',
     'member',
     'billing'
-);
-
+    );
 CREATE TYPE public.entitlement_source AS ENUM (
     'plan',
     'addon',
     'override',
     'promotion'
-);
-
+    );
 CREATE TYPE public.contract_status AS ENUM (
     'draft',
     'active',
     'expired',
     'terminated'
-);
-
+    );
 CREATE TYPE public.credit_note_status AS ENUM (
     'draft',
     'issued',
     'void'
-);
-
+    );
 CREATE TYPE public.credit_note_reason AS ENUM (
     'duplicate',
     'fraudulent',
     'order_change',
     'product_unsatisfactory'
-);
-
+    );
 CREATE TYPE public.webhook_event_status AS ENUM (
     'pending',
     'processed',
     'failed',
     'ignored'
-);
+    );
 
-DROP SEQUENCE IF EXISTS public.invoice_number_seq;
-CREATE SEQUENCE public.invoice_number_seq     START 1;
-DROP SEQUENCE IF EXISTS public.credit_note_number_seq;
-CREATE SEQUENCE public.credit_note_number_seq START 1;
 
+CREATE TABLE public.organization_billing_emails (
+    id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    uid             UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
+    organization_id BIGINT      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    billing_email   TEXT        NOT NULL CHECK (char_length(billing_email) BETWEEN 1 AND 320),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_organization_billing_emails_org ON public.organization_billing_emails(organization_id);
+ALTER TABLE public.organization_billing_emails ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.organization_billing_emails TO service_role;
+
+
+CREATE OR REPLACE FUNCTION private.is_org_billing(p_org_id BIGINT)
+    RETURNS BOOLEAN AS $$
+        SELECT private.has_org_permission(p_org_id, 'billing.manage');
+    $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
+
+
+GRANT SELECT ON TABLE public.organization_billing_emails TO authenticated;
+CREATE POLICY "Allow org billing role to view billing emails"
+    ON public.organization_billing_emails FOR SELECT
+    TO authenticated
+    USING (private.is_org_billing(organization_id) OR public.has_permission('view', 'billing_email', id));
+
+
+GRANT INSERT (organization_id, billing_email) ON TABLE public.organization_billing_emails TO authenticated;
+CREATE POLICY "Allow org admins to insert billing emails"
+    ON public.organization_billing_emails FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        exists(SELECT 1 FROM public.organizations o WHERE o.id = organization_id AND private.is_org_admin(o.id))
+        OR public.has_permission('edit', 'billing_email', NULL)
+    );
+
+
+DROP SEQUENCE IF EXISTS public.invoice_number_seq; CREATE SEQUENCE public.invoice_number_seq START 1;
 CREATE OR REPLACE FUNCTION private.next_invoice_number()
-RETURNS TEXT AS $$
-BEGIN
-    RETURN 'INV-' || TO_CHAR(NOW(), 'YYYY') || '-' ||
-           LPAD(nextval('public.invoice_number_seq')::TEXT, 6, '0');
-END;
-$$ LANGUAGE plpgsql SET search_path = public, private;
+    RETURNS TEXT AS $$
+    BEGIN
+        RETURN 'INV-' || TO_CHAR(NOW(), 'YYYY') || '-' ||
+            LPAD(nextval('public.invoice_number_seq')::TEXT, 6, '0');
+    END;
+    $$ LANGUAGE plpgsql SET search_path = public, private;
 
+
+DROP SEQUENCE IF EXISTS public.credit_note_number_seq; CREATE SEQUENCE public.credit_note_number_seq START 1;
 CREATE OR REPLACE FUNCTION private.next_credit_note_number()
-RETURNS TEXT AS $$
-BEGIN
-    RETURN 'CN-' || TO_CHAR(NOW(), 'YYYY') || '-' ||
-           LPAD(nextval('public.credit_note_number_seq')::TEXT, 6, '0');
-END;
-$$ LANGUAGE plpgsql SET search_path = public, private;
+    RETURNS TEXT AS $$
+    BEGIN
+        RETURN 'CN-' || TO_CHAR(NOW(), 'YYYY') || '-' ||
+            LPAD(nextval('public.credit_note_number_seq')::TEXT, 6, '0');
+    END;
+    $$ LANGUAGE plpgsql SET search_path = public, private;
+
 
 CREATE TABLE public.features (
     id          BIGINT               GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -224,19 +205,17 @@ CREATE TABLE public.features (
     type        public.feature_type  NOT NULL,
     unit        TEXT                 CHECK (char_length(unit) <= 100),
     is_active   BOOLEAN              NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMPTZ          NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ          NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.features TO authenticated, service_role;
+    created_at  TIMESTAMPTZ          NOT NULL DEFAULT NOW()
+    );
 ALTER TABLE public.features ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.features TO service_role;
 
-CREATE OR REPLACE FUNCTION private.on_insert_features()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_features BEFORE INSERT ON public.features FOR EACH ROW EXECUTE FUNCTION private.on_insert_features();
+GRANT SELECT ON TABLE public.features TO authenticated;
+CREATE POLICY "Allow authenticated users to read active features"
+    ON public.features FOR SELECT
+    TO authenticated
+    USING (is_active = TRUE);
 
-CREATE OR REPLACE FUNCTION private.on_update_feature()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_update_feature BEFORE UPDATE ON public.features FOR EACH ROW EXECUTE FUNCTION private.on_update_feature();
 
 CREATE TABLE public.plans (
     id          BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -250,17 +229,15 @@ CREATE TABLE public.plans (
     metadata    JSONB       NOT NULL DEFAULT '{}',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.plans TO authenticated, service_role;
+    );
 ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.plans TO service_role;
 
-CREATE OR REPLACE FUNCTION private.on_insert_plans()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_plans BEFORE INSERT ON public.plans FOR EACH ROW EXECUTE FUNCTION private.on_insert_plans();
-
-CREATE OR REPLACE FUNCTION private.on_update_plan()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_update_plan BEFORE UPDATE ON public.plans FOR EACH ROW EXECUTE FUNCTION private.on_update_plan();
+GRANT SELECT ON TABLE public.plans TO authenticated;
+CREATE POLICY "Allow authenticated users to read active public plans"
+    ON public.plans FOR SELECT
+    TO authenticated
+    USING (is_active = TRUE AND is_public = TRUE);
 
 
 -- Versioned pricing — create a new version when pricing changes so
@@ -283,19 +260,27 @@ CREATE TABLE public.plan_versions (
     metadata                  JSONB                   NOT NULL DEFAULT '{}',
     created_at                TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
     UNIQUE (plan_id, version_number)
-);
-GRANT ALL ON TABLE public.plan_versions TO authenticated, service_role;
+    );
+CREATE INDEX idx_plan_versions_plan ON public.plan_versions(plan_id);
+CREATE INDEX idx_plan_versions_provider_price ON public.plan_versions(billing_provider_price_id) WHERE billing_provider_price_id IS NOT NULL;
 ALTER TABLE public.plan_versions ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.plan_versions TO service_role;
 
-CREATE INDEX idx_plan_versions_plan
-    ON public.plan_versions(plan_id);
-CREATE INDEX idx_plan_versions_provider_price
-    ON public.plan_versions(billing_provider_price_id)
-    WHERE billing_provider_price_id IS NOT NULL;
 
-CREATE OR REPLACE FUNCTION private.on_insert_plan_versions()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_plan_versions BEFORE INSERT ON public.plan_versions FOR EACH ROW EXECUTE FUNCTION private.on_insert_plan_versions();
+GRANT SELECT ON TABLE public.plan_versions TO authenticated;
+CREATE POLICY "Allow authenticated users to read active plan versions"
+    ON public.plan_versions FOR SELECT
+    TO authenticated
+    USING (
+        is_active = TRUE
+        AND EXISTS (
+            SELECT 1 FROM public.plans p
+            WHERE p.id = plan_id
+              AND p.is_active = TRUE
+              AND p.is_public = TRUE
+        )
+    );
+
 
 CREATE TABLE public.plan_feature_entitlements (
     id              BIGINT                      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -307,16 +292,18 @@ CREATE TABLE public.plan_feature_entitlements (
     reset_period    public.feature_reset_period NOT NULL DEFAULT 'monthly',
     created_at      TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
     UNIQUE (plan_version_id, feature_id)
-);
-GRANT ALL ON TABLE public.plan_feature_entitlements TO authenticated, service_role;
+    );
+CREATE INDEX idx_plan_feature_entitlements_version ON public.plan_feature_entitlements(plan_version_id);
 ALTER TABLE public.plan_feature_entitlements ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.plan_feature_entitlements TO service_role;
 
-CREATE INDEX idx_plan_feature_entitlements_version
-    ON public.plan_feature_entitlements(plan_version_id);
 
-CREATE OR REPLACE FUNCTION private.on_insert_plan_feature_entitlements()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_plan_feature_entitlements BEFORE INSERT ON public.plan_feature_entitlements FOR EACH ROW EXECUTE FUNCTION private.on_insert_plan_feature_entitlements();
+GRANT SELECT ON TABLE public.plan_feature_entitlements TO authenticated;
+CREATE POLICY "Allow authenticated users to read plan entitlements"
+    ON public.plan_feature_entitlements FOR SELECT
+    TO authenticated
+    USING (TRUE);
+
 
 CREATE TABLE public.addons (
     id          BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -325,19 +312,17 @@ CREATE TABLE public.addons (
     key         TEXT        NOT NULL UNIQUE CHECK (char_length(key) BETWEEN 1 AND 100),
     description TEXT        CHECK (char_length(description) <= 1000),
     is_active   BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.addons TO authenticated, service_role;
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
 ALTER TABLE public.addons ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.addons TO service_role;
 
-CREATE OR REPLACE FUNCTION private.on_insert_addons()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_addons BEFORE INSERT ON public.addons FOR EACH ROW EXECUTE FUNCTION private.on_insert_addons();
+GRANT SELECT ON TABLE public.addons TO authenticated;
+CREATE POLICY "Allow authenticated users to read active addons"
+    ON public.addons FOR SELECT
+    TO authenticated
+    USING (is_active = TRUE);
 
-CREATE OR REPLACE FUNCTION private.on_update_addon()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_update_addon BEFORE UPDATE ON public.addons FOR EACH ROW EXECUTE FUNCTION private.on_update_addon();
 
 CREATE TABLE public.addon_versions (
     id                        BIGINT                  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -350,15 +335,17 @@ CREATE TABLE public.addon_versions (
     is_active                 BOOLEAN                 NOT NULL DEFAULT TRUE,
     effective_from            TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
     created_at                TIMESTAMPTZ             NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.addon_versions TO authenticated, service_role;
-ALTER TABLE public.addon_versions ENABLE ROW LEVEL SECURITY;
-
+    );
 CREATE INDEX idx_addon_versions_addon ON public.addon_versions(addon_id);
+ALTER TABLE public.addon_versions ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.addon_versions TO service_role;
 
-CREATE OR REPLACE FUNCTION private.on_insert_addon_versions()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_addon_versions BEFORE INSERT ON public.addon_versions FOR EACH ROW EXECUTE FUNCTION private.on_insert_addon_versions();
+GRANT SELECT ON TABLE public.addon_versions TO authenticated;
+CREATE POLICY "Allow authenticated users to read active addon versions"
+    ON public.addon_versions FOR SELECT
+    TO authenticated
+    USING (is_active = TRUE);
+
 
 CREATE TABLE public.addon_feature_entitlements (
     id               BIGINT                      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -370,16 +357,16 @@ CREATE TABLE public.addon_feature_entitlements (
     reset_period     public.feature_reset_period NOT NULL DEFAULT 'monthly',
     created_at       TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
     UNIQUE (addon_version_id, feature_id)
-);
-GRANT ALL ON TABLE public.addon_feature_entitlements TO authenticated, service_role;
+    );
+CREATE INDEX idx_addon_feature_entitlements_version ON public.addon_feature_entitlements(addon_version_id);
 ALTER TABLE public.addon_feature_entitlements ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.addon_feature_entitlements TO service_role;
 
-CREATE INDEX idx_addon_feature_entitlements_version
-    ON public.addon_feature_entitlements(addon_version_id);
-
-CREATE OR REPLACE FUNCTION private.on_insert_addon_feature_entitlements()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_addon_feature_entitlements BEFORE INSERT ON public.addon_feature_entitlements FOR EACH ROW EXECUTE FUNCTION private.on_insert_addon_feature_entitlements();
+GRANT SELECT ON TABLE public.addon_feature_entitlements TO authenticated;
+CREATE POLICY "Allow authenticated users to read addon entitlements"
+    ON public.addon_feature_entitlements FOR SELECT
+    TO authenticated
+    USING (TRUE);
 
 
 CREATE TABLE public.subscriptions (
@@ -400,30 +387,22 @@ CREATE TABLE public.subscriptions (
     billing_provider                 public.billing_provider,
     billing_provider_subscription_id TEXT                       UNIQUE,
     metadata                         JSONB                      NOT NULL DEFAULT '{}',
-    created_at                       TIMESTAMPTZ                NOT NULL DEFAULT NOW(),
-    updated_at                       TIMESTAMPTZ                NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.subscriptions TO authenticated, service_role;
+    created_at                       TIMESTAMPTZ                NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_subscriptions_org ON public.subscriptions(organization_id);
+CREATE INDEX idx_subscriptions_status ON public.subscriptions(status);
+CREATE INDEX idx_subscriptions_provider_id ON public.subscriptions(billing_provider_subscription_id) WHERE billing_provider_subscription_id IS NOT NULL;
+CREATE INDEX idx_subscriptions_period_end ON public.subscriptions(current_period_end) WHERE status = 'active';
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.subscriptions TO service_role;
 
-CREATE INDEX idx_subscriptions_org
-    ON public.subscriptions(organization_id);
-CREATE INDEX idx_subscriptions_status
-    ON public.subscriptions(status);
-CREATE INDEX idx_subscriptions_provider_id
-    ON public.subscriptions(billing_provider_subscription_id)
-    WHERE billing_provider_subscription_id IS NOT NULL;
-CREATE INDEX idx_subscriptions_period_end
-    ON public.subscriptions(current_period_end)
-    WHERE status = 'active';
+GRANT SELECT ON TABLE public.subscriptions TO authenticated;
+CREATE POLICY "Allow billing role to view subscriptions"
+    ON public.subscriptions FOR SELECT
+    TO authenticated
+    USING (private.is_org_billing(organization_id) OR public.has_permission('view', 'subscription', id));
 
-CREATE OR REPLACE FUNCTION private.on_insert_subscriptions()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_subscriptions BEFORE INSERT ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION private.on_insert_subscriptions();
 
-CREATE OR REPLACE FUNCTION private.on_update_subscription()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_update_subscription BEFORE UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION private.on_update_subscription();
 
 CREATE TABLE public.subscription_addons (
     id                                    BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -435,23 +414,24 @@ CREATE TABLE public.subscription_addons (
     started_at                            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ends_at                               TIMESTAMPTZ,
     billing_provider_subscription_item_id TEXT,
-    created_at                            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at                            TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.subscription_addons TO authenticated, service_role;
+    created_at                            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_subscription_addons_subscription ON public.subscription_addons(subscription_id);
 ALTER TABLE public.subscription_addons ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.subscription_addons TO service_role;
 
-CREATE INDEX idx_subscription_addons_subscription
-    ON public.subscription_addons(subscription_id);
-
-CREATE OR REPLACE FUNCTION private.on_insert_subscription_addons()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_subscription_addons BEFORE INSERT ON public.subscription_addons FOR EACH ROW EXECUTE FUNCTION private.on_insert_subscription_addons();
-
-CREATE OR REPLACE FUNCTION private.on_update_subscription_addon()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_update_subscription_addon BEFORE UPDATE ON public.subscription_addons FOR EACH ROW EXECUTE FUNCTION private.on_update_subscription_addon();
-
+GRANT SELECT ON TABLE public.subscription_addons TO authenticated;
+CREATE POLICY "Allow billing role to view subscription addons"
+    ON public.subscription_addons FOR SELECT
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.subscriptions s
+            WHERE s.id = subscription_id
+              AND private.is_org_billing(s.organization_id)
+        )
+        OR public.has_permission('view', 'subscription_addon', id)
+    );
 
 -- ================================================================
 -- SUBSCRIPTION CHANGE REQUESTS  (state machine)
@@ -478,23 +458,31 @@ CREATE TABLE public.subscription_change_requests (
     created_at               TIMESTAMPTZ                  NOT NULL DEFAULT NOW(),
     processed_at             TIMESTAMPTZ,
     expires_at               TIMESTAMPTZ                  NOT NULL DEFAULT (NOW() + INTERVAL '24 hours')
-);
-GRANT ALL ON TABLE public.subscription_change_requests TO authenticated, service_role;
+    );
+CREATE INDEX idx_change_requests_subscription ON public.subscription_change_requests(subscription_id);
+CREATE INDEX idx_change_requests_org ON public.subscription_change_requests(organization_id);
+CREATE INDEX idx_change_requests_status ON public.subscription_change_requests(status);
+CREATE INDEX idx_change_requests_expires ON public.subscription_change_requests(expires_at) WHERE status IN ('pending', 'processing', 'awaiting_payment');
 ALTER TABLE public.subscription_change_requests ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.subscription_change_requests TO service_role;
 
-CREATE INDEX idx_change_requests_subscription
-    ON public.subscription_change_requests(subscription_id);
-CREATE INDEX idx_change_requests_org
-    ON public.subscription_change_requests(organization_id);
-CREATE INDEX idx_change_requests_status
-    ON public.subscription_change_requests(status);
-CREATE INDEX idx_change_requests_expires
-    ON public.subscription_change_requests(expires_at)
-    WHERE status IN ('pending', 'processing', 'awaiting_payment');
+GRANT SELECT ON TABLE public.subscription_change_requests TO authenticated;
+CREATE POLICY "Allow billing role to view change requests"
+    ON public.subscription_change_requests FOR SELECT
+    TO authenticated
+    USING (private.is_org_billing(organization_id) OR public.has_permission('view', 'subscription_change', id));
 
-CREATE OR REPLACE FUNCTION private.on_insert_subscription_change_requests()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_subscription_change_requests BEFORE INSERT ON public.subscription_change_requests FOR EACH ROW EXECUTE FUNCTION private.on_insert_subscription_change_requests();
+GRANT INSERT ON TABLE public.subscription_change_requests TO authenticated;
+CREATE POLICY "Allow billing role to create change requests"
+    ON public.subscription_change_requests FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        (
+            private.is_org_billing(organization_id)
+            AND requested_by_account_id IN (SELECT id FROM public.accounts WHERE user_id = auth.uid())
+        )
+        OR public.has_permission('create', 'subscription_change', NULL)
+    );
 
 
 -- ================================================================
@@ -531,31 +519,21 @@ CREATE TABLE public.invoices (
     snapshot_tax_rates          JSONB                  NOT NULL DEFAULT '[]',
     idempotency_key             TEXT                   UNIQUE,
     metadata                    JSONB                  NOT NULL DEFAULT '{}',
-    created_at                  TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
-    updated_at                  TIMESTAMPTZ            NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.invoices TO authenticated, service_role;
+    created_at                  TIMESTAMPTZ            NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_invoices_org ON public.invoices(organization_id);
+CREATE INDEX idx_invoices_subscription ON public.invoices(subscription_id);
+CREATE INDEX idx_invoices_status ON public.invoices(status);
+CREATE INDEX idx_invoices_provider_id ON public.invoices(billing_provider_invoice_id) WHERE billing_provider_invoice_id IS NOT NULL;
+CREATE INDEX idx_invoices_period ON public.invoices(organization_id, period_start, period_end);
 ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.invoices TO service_role;
 
-CREATE INDEX idx_invoices_org
-    ON public.invoices(organization_id);
-CREATE INDEX idx_invoices_subscription
-    ON public.invoices(subscription_id);
-CREATE INDEX idx_invoices_status
-    ON public.invoices(status);
-CREATE INDEX idx_invoices_provider_id
-    ON public.invoices(billing_provider_invoice_id)
-    WHERE billing_provider_invoice_id IS NOT NULL;
-CREATE INDEX idx_invoices_period
-    ON public.invoices(organization_id, period_start, period_end);
-
-CREATE OR REPLACE FUNCTION private.on_insert_invoices()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_invoices BEFORE INSERT ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.on_insert_invoices();
-
-CREATE OR REPLACE FUNCTION private.on_update_invoice()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_update_invoice BEFORE UPDATE ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.on_update_invoice();
+GRANT SELECT ON TABLE public.invoices TO authenticated;
+CREATE POLICY "Allow billing role to view invoices"
+    ON public.invoices FOR SELECT
+    TO authenticated
+    USING (private.is_org_billing(organization_id) OR public.has_permission('view', 'invoice', id));
 
 
 CREATE TABLE public.invoice_line_items (
@@ -575,16 +553,23 @@ CREATE TABLE public.invoice_line_items (
     billing_provider_line_item_id TEXT,
     metadata                      JSONB         NOT NULL DEFAULT '{}',
     created_at                    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.invoice_line_items TO authenticated, service_role;
+    );
+CREATE INDEX idx_invoice_line_items_invoice ON public.invoice_line_items(invoice_id);
 ALTER TABLE public.invoice_line_items ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.invoice_line_items TO service_role;
 
-CREATE INDEX idx_invoice_line_items_invoice
-    ON public.invoice_line_items(invoice_id);
-
-CREATE OR REPLACE FUNCTION private.on_insert_invoice_line_items()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_invoice_line_items BEFORE INSERT ON public.invoice_line_items FOR EACH ROW EXECUTE FUNCTION private.on_insert_invoice_line_items();
+GRANT SELECT ON TABLE public.invoice_line_items TO authenticated;
+CREATE POLICY "Allow billing role to view invoice line items"
+    ON public.invoice_line_items FOR SELECT
+    TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.invoices i
+            WHERE i.id = invoice_id
+              AND private.is_org_billing(i.organization_id)
+        )
+        OR public.has_permission('view', 'invoice_line_item', id)
+    );
 
 
 CREATE TABLE public.credit_notes (
@@ -600,16 +585,19 @@ CREATE TABLE public.credit_notes (
     billing_provider_credit_note_id TEXT                      UNIQUE,
     created_at                      TIMESTAMPTZ               NOT NULL DEFAULT NOW(),
     voided_at                       TIMESTAMPTZ
-);
-GRANT ALL ON TABLE public.credit_notes TO authenticated, service_role;
-ALTER TABLE public.credit_notes ENABLE ROW LEVEL SECURITY;
-
+    );
 CREATE INDEX idx_credit_notes_invoice ON public.credit_notes(invoice_id);
 CREATE INDEX idx_credit_notes_org     ON public.credit_notes(organization_id);
+ALTER TABLE public.credit_notes ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.credit_notes TO service_role;
 
-CREATE OR REPLACE FUNCTION private.on_insert_credit_notes()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_credit_notes BEFORE INSERT ON public.credit_notes FOR EACH ROW EXECUTE FUNCTION private.on_insert_credit_notes();
+GRANT SELECT ON TABLE public.credit_notes TO authenticated;
+CREATE POLICY "Allow billing role to view credit notes"
+    ON public.credit_notes FOR SELECT
+    TO authenticated
+    USING (private.is_org_billing(organization_id) OR public.has_permission('view', 'credit_note', id));
+
+
 
 CREATE TABLE public.payments (
     id                                 BIGINT                  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -628,29 +616,20 @@ CREATE TABLE public.payments (
     billing_provider_payment_method_id TEXT,
     metadata                           JSONB                   NOT NULL DEFAULT '{}',
     created_at                         TIMESTAMPTZ             NOT NULL DEFAULT NOW(),
-    processed_at                       TIMESTAMPTZ,
-    updated_at                         TIMESTAMPTZ             NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.payments TO authenticated, service_role;
+    processed_at                       TIMESTAMPTZ
+    );
+CREATE INDEX idx_payments_org ON public.payments(organization_id);
+CREATE INDEX idx_payments_invoice ON public.payments(invoice_id);
+CREATE INDEX idx_payments_status ON public.payments(status);
+CREATE INDEX idx_payments_provider_id ON public.payments(billing_provider_payment_id) WHERE billing_provider_payment_id IS NOT NULL;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.payments TO service_role;
 
-CREATE INDEX idx_payments_org
-    ON public.payments(organization_id);
-CREATE INDEX idx_payments_invoice
-    ON public.payments(invoice_id);
-CREATE INDEX idx_payments_status
-    ON public.payments(status);
-CREATE INDEX idx_payments_provider_id
-    ON public.payments(billing_provider_payment_id)
-    WHERE billing_provider_payment_id IS NOT NULL;
-
-CREATE OR REPLACE FUNCTION private.on_insert_payments()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_payments BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.on_insert_payments();
-
-CREATE OR REPLACE FUNCTION private.on_update_payment()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_update_payment BEFORE UPDATE ON public.payments FOR EACH ROW EXECUTE FUNCTION private.on_update_payment();
+GRANT SELECT ON TABLE public.payments TO authenticated;
+CREATE POLICY "Allow billing role to view payments"
+    ON public.payments FOR SELECT
+    TO authenticated
+    USING (private.is_org_billing(organization_id) OR public.has_permission('view', 'payment', id));
 
 
 -- ================================================================
@@ -672,18 +651,19 @@ CREATE TABLE public.subscription_entitlements (
     valid_until     TIMESTAMPTZ,
     created_at      TIMESTAMPTZ               NOT NULL DEFAULT NOW(),
     UNIQUE (organization_id, subscription_id, feature_id)
-);
-GRANT ALL ON TABLE public.subscription_entitlements TO authenticated, service_role;
+    );
+CREATE INDEX idx_entitlements_org_feature ON public.subscription_entitlements(organization_id, feature_key);
+CREATE INDEX idx_entitlements_subscription ON public.subscription_entitlements(subscription_id);
 ALTER TABLE public.subscription_entitlements ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.subscription_entitlements TO service_role;
 
-CREATE INDEX idx_entitlements_org_feature
-    ON public.subscription_entitlements(organization_id, feature_key);
-CREATE INDEX idx_entitlements_subscription
-    ON public.subscription_entitlements(subscription_id);
+GRANT SELECT ON TABLE public.subscription_entitlements TO authenticated;
+CREATE POLICY "Allow members with analytics.view to read their entitlements"
+    ON public.subscription_entitlements FOR SELECT
+    TO authenticated
+    USING (private.has_org_permission(organization_id, 'analytics.view') OR public.has_permission('view', 'subscription_entitlement', id));
 
-CREATE OR REPLACE FUNCTION private.on_insert_subscription_entitlements()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_subscription_entitlements BEFORE INSERT ON public.subscription_entitlements FOR EACH ROW EXECUTE FUNCTION private.on_insert_subscription_entitlements();
+
 
 CREATE TABLE public.usage_records (
     id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -699,63 +679,42 @@ CREATE TABLE public.usage_records (
     idempotency_key TEXT        UNIQUE,
     metadata        JSONB       NOT NULL DEFAULT '{}',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.usage_records TO authenticated, service_role;
+    );
+CREATE INDEX idx_usage_records_org_feature_period ON public.usage_records(organization_id, feature_key, period_start, period_end);
+CREATE INDEX idx_usage_records_subscription ON public.usage_records(subscription_id, recorded_at);
 ALTER TABLE public.usage_records ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.usage_records TO service_role;
 
-CREATE INDEX idx_usage_records_org_feature_period
-    ON public.usage_records(organization_id, feature_key, period_start, period_end);
-CREATE INDEX idx_usage_records_subscription
-    ON public.usage_records(subscription_id, recorded_at);
+GRANT SELECT ON TABLE public.usage_records TO authenticated;
+CREATE POLICY "Allow members with analytics.view to view usage records"
+    ON public.usage_records FOR SELECT
+    TO authenticated
+    USING (private.has_org_permission(organization_id, 'analytics.view') OR public.has_permission('view', 'usage_record', id));
+
 
 CREATE OR REPLACE FUNCTION private.on_insert_usage_records()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.created_at = NOW();
+    RETURNS TRIGGER AS $$
+    BEGIN
+        IF NEW.feature_id IS NULL AND NEW.feature_key IS NOT NULL THEN
+            SELECT id INTO NEW.feature_id
+            FROM public.features
+            WHERE key = NEW.feature_key
+            LIMIT 1;
+        END IF;
 
-    IF NEW.feature_id IS NULL AND NEW.feature_key IS NOT NULL THEN
-        SELECT id INTO NEW.feature_id
-        FROM public.features
-        WHERE key = NEW.feature_key
-        LIMIT 1;
-    END IF;
+        IF NEW.subscription_id IS NULL AND NEW.organization_id IS NOT NULL THEN
+            SELECT id INTO NEW.subscription_id
+            FROM public.subscriptions
+            WHERE organization_id = NEW.organization_id
+            AND status IN ('active', 'trialing')
+            ORDER BY created_at DESC
+            LIMIT 1;
+        END IF;
 
-    IF NEW.subscription_id IS NULL AND NEW.organization_id IS NOT NULL THEN
-        SELECT id INTO NEW.subscription_id
-        FROM public.subscriptions
-        WHERE organization_id = NEW.organization_id
-          AND status IN ('active', 'trialing')
-        ORDER BY created_at DESC
-        LIMIT 1;
-    END IF;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_usage_records BEFORE INSERT ON public.usage_records FOR EACH ROW EXECUTE FUNCTION private.on_insert_usage_records();
-
-CREATE OR REPLACE FUNCTION private.on_usage_records_inserted()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.subscription_id IS NULL OR NEW.feature_id IS NULL THEN
         RETURN NEW;
-    END IF;
-
-    INSERT INTO public.usage_summaries (
-        organization_id, subscription_id, feature_id, feature_key,
-        period_start, period_end, total_quantity, last_updated_at
-    )
-    VALUES (
-        NEW.organization_id, NEW.subscription_id, NEW.feature_id, NEW.feature_key,
-        NEW.period_start, NEW.period_end, NEW.quantity, NOW()
-    )
-    ON CONFLICT (organization_id, subscription_id, feature_id, period_start, period_end)
-    DO UPDATE SET
-        total_quantity  = usage_summaries.total_quantity + EXCLUDED.total_quantity,
-        last_updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SET search_path = public, private;
+    END;
+    $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_insert_usage_records BEFORE INSERT ON public.usage_records FOR EACH ROW EXECUTE FUNCTION private.on_insert_usage_records();
 
 CREATE TABLE public.usage_summaries (
     id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -770,23 +729,42 @@ CREATE TABLE public.usage_summaries (
     last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (organization_id, subscription_id, feature_id, period_start, period_end)
-);
-GRANT ALL ON TABLE public.usage_summaries TO authenticated, service_role;
+    );
+CREATE INDEX idx_usage_summaries_org_feature ON public.usage_summaries(organization_id, feature_key);
+CREATE INDEX idx_usage_summaries_subscription_period ON public.usage_summaries(subscription_id, period_start);
 ALTER TABLE public.usage_summaries ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.usage_summaries TO service_role;
 
-CREATE INDEX idx_usage_summaries_org_feature
-    ON public.usage_summaries(organization_id, feature_key);
-CREATE INDEX idx_usage_summaries_subscription_period
-    ON public.usage_summaries(subscription_id, period_start);
+GRANT SELECT ON TABLE public.usage_summaries TO authenticated;
+CREATE POLICY "Allow members with analytics.view to view usage summaries"
+    ON public.usage_summaries FOR SELECT
+    TO authenticated
+    USING (private.has_org_permission(organization_id, 'analytics.view') OR public.has_permission('view', 'usage_summary', id));
 
-CREATE OR REPLACE FUNCTION private.on_insert_usage_summaries()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_usage_summaries BEFORE INSERT ON public.usage_summaries FOR EACH ROW EXECUTE FUNCTION private.on_insert_usage_summaries();
 
 -- The AFTER INSERT trigger on usage_records references usage_summaries, so it is created after that table.
-CREATE TRIGGER on_usage_records_inserted
-    AFTER INSERT ON public.usage_records
-    FOR EACH ROW EXECUTE FUNCTION private.on_usage_records_inserted();
+CREATE OR REPLACE FUNCTION private.on_usage_records_inserted()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        IF NEW.subscription_id IS NULL OR NEW.feature_id IS NULL THEN
+            RETURN NEW;
+        END IF;
+
+        INSERT INTO public.usage_summaries (
+            organization_id, subscription_id, feature_id, feature_key,
+            period_start, period_end, total_quantity, last_updated_at
+        )
+        VALUES (
+            NEW.organization_id, NEW.subscription_id, NEW.feature_id, NEW.feature_key,
+            NEW.period_start, NEW.period_end, NEW.quantity, NOW()
+        ) ON CONFLICT (organization_id, subscription_id, feature_id, period_start, period_end)
+        DO UPDATE SET
+            total_quantity  = usage_summaries.total_quantity + EXCLUDED.total_quantity,
+            last_updated_at = NOW();
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql SET search_path = public, private;
+CREATE TRIGGER on_usage_records_inserted AFTER INSERT ON public.usage_records FOR EACH ROW EXECUTE FUNCTION private.on_usage_records_inserted();
 
 
 -- ================================================================
@@ -802,20 +780,18 @@ CREATE TABLE public.subscription_events (
     payload         JSONB       NOT NULL DEFAULT '{}',
     occurred_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.subscription_events TO authenticated, service_role;
+    );
+CREATE INDEX idx_subscription_events_org ON public.subscription_events(organization_id, occurred_at DESC);
+CREATE INDEX idx_subscription_events_subscription ON public.subscription_events(subscription_id);
+CREATE INDEX idx_subscription_events_type ON public.subscription_events(type, occurred_at DESC);
 ALTER TABLE public.subscription_events ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.subscription_events TO service_role;
 
-CREATE INDEX idx_subscription_events_org
-    ON public.subscription_events(organization_id, occurred_at DESC);
-CREATE INDEX idx_subscription_events_subscription
-    ON public.subscription_events(subscription_id);
-CREATE INDEX idx_subscription_events_type
-    ON public.subscription_events(type, occurred_at DESC);
-
-CREATE OR REPLACE FUNCTION private.on_insert_subscription_events()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_subscription_events BEFORE INSERT ON public.subscription_events FOR EACH ROW EXECUTE FUNCTION private.on_insert_subscription_events();
+GRANT SELECT ON TABLE public.subscription_events TO authenticated;
+CREATE POLICY "Allow billing role to view subscription events"
+    ON public.subscription_events FOR SELECT
+    TO authenticated
+    USING (private.is_org_billing(organization_id) OR public.has_permission('view', 'subscription_event', id));
 
 
 -- ================================================================
@@ -835,43 +811,11 @@ CREATE TABLE public.billing_webhook_events (
     retry_count      SMALLINT                    NOT NULL DEFAULT 0,
     created_at       TIMESTAMPTZ                 NOT NULL DEFAULT NOW(),
     UNIQUE (billing_provider, event_id)
-);
-GRANT ALL ON TABLE public.billing_webhook_events TO authenticated, service_role;
+    );
+CREATE INDEX idx_webhook_events_status ON public.billing_webhook_events(status, created_at);
+CREATE INDEX idx_webhook_events_provider_type ON public.billing_webhook_events(billing_provider, event_type);
 ALTER TABLE public.billing_webhook_events ENABLE ROW LEVEL SECURITY;
-
-CREATE INDEX idx_webhook_events_status
-    ON public.billing_webhook_events(status, created_at);
-CREATE INDEX idx_webhook_events_provider_type
-    ON public.billing_webhook_events(billing_provider, event_type);
-
-CREATE OR REPLACE FUNCTION private.on_insert_billing_webhook_events()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_billing_webhook_events BEFORE INSERT ON public.billing_webhook_events FOR EACH ROW EXECUTE FUNCTION private.on_insert_billing_webhook_events();
-
-
--- ================================================================
--- IDEMPOTENCY KEYS
--- ================================================================
-
-CREATE TABLE public.idempotency_keys (
-    id              BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    uid             UUID        NOT NULL UNIQUE DEFAULT private.gen_uuid_v7(),
-    key             TEXT        NOT NULL UNIQUE CHECK (char_length(key) BETWEEN 1 AND 255),
-    request_path    TEXT        NOT NULL CHECK (char_length(request_path) BETWEEN 1 AND 1000),
-    request_hash    TEXT        NOT NULL,
-    response_status INTEGER,
-    response_body   JSONB,
-    locked_at       TIMESTAMPTZ,
-    expires_at      TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '24 hours'),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.idempotency_keys TO authenticated, service_role;
-ALTER TABLE public.idempotency_keys ENABLE ROW LEVEL SECURITY;
-
-CREATE INDEX idx_idempotency_keys_expires ON public.idempotency_keys(expires_at);
-
-CREATE OR REPLACE FUNCTION private.on_insert_idempotency_keys() RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_idempotency_keys BEFORE INSERT ON public.idempotency_keys FOR EACH ROW EXECUTE FUNCTION private.on_insert_idempotency_keys();
+GRANT ALL ON TABLE public.billing_webhook_events TO service_role;
 
 
 -- ================================================================
@@ -892,234 +836,96 @@ CREATE TABLE public.subscription_contracts (
     document_url         TEXT                   CHECK (char_length(document_url) <= 2048),
     signed_at            TIMESTAMPTZ,
     signed_by_account_id BIGINT                 REFERENCES public.accounts(id) ON DELETE SET NULL,
-    created_at           TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
-    updated_at           TIMESTAMPTZ            NOT NULL DEFAULT NOW()
-);
-GRANT ALL ON TABLE public.subscription_contracts TO authenticated, service_role;
+    created_at           TIMESTAMPTZ            NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_contracts_org ON public.subscription_contracts(organization_id);
+CREATE INDEX idx_contracts_subscription ON public.subscription_contracts(subscription_id);
 ALTER TABLE public.subscription_contracts ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.subscription_contracts TO service_role;
 
-CREATE INDEX idx_contracts_org
-    ON public.subscription_contracts(organization_id);
-CREATE INDEX idx_contracts_subscription
-    ON public.subscription_contracts(subscription_id);
-
-CREATE OR REPLACE FUNCTION private.on_insert_subscription_contracts()
-    RETURNS TRIGGER AS $$ BEGIN NEW.created_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_insert_subscription_contracts BEFORE INSERT ON public.subscription_contracts FOR EACH ROW EXECUTE FUNCTION private.on_insert_subscription_contracts();
-
-CREATE OR REPLACE FUNCTION private.on_update_subscription_contract()
-    RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql SET search_path = public, private;
-CREATE TRIGGER on_update_subscription_contract BEFORE UPDATE ON public.subscription_contracts FOR EACH ROW EXECUTE FUNCTION private.on_update_subscription_contract();
-
--- ================================================================
--- ROW LEVEL SECURITY POLICIES
--- ================================================================
-
-CREATE POLICY "Allow authenticated users to read active public plans"
-    ON public.plans FOR SELECT
-    TO authenticated
-    USING (is_active = TRUE AND is_public = TRUE);
-
-CREATE POLICY "Allow authenticated users to read active plan versions"
-    ON public.plan_versions FOR SELECT
-    TO authenticated
-    USING (
-        is_active = TRUE
-        AND EXISTS (
-            SELECT 1 FROM public.plans p
-            WHERE p.id = plan_id
-              AND p.is_active = TRUE
-              AND p.is_public = TRUE
-        )
-    );
-
-CREATE POLICY "Allow authenticated users to read active features"
-    ON public.features FOR SELECT
-    TO authenticated
-    USING (is_active = TRUE);
-
-CREATE POLICY "Allow authenticated users to read plan entitlements"
-    ON public.plan_feature_entitlements FOR SELECT
-    TO authenticated
-    USING (TRUE);
-
-CREATE POLICY "Allow authenticated users to read active addons"
-    ON public.addons FOR SELECT
-    TO authenticated
-    USING (is_active = TRUE);
-
-CREATE POLICY "Allow authenticated users to read active addon versions"
-    ON public.addon_versions FOR SELECT
-    TO authenticated
-    USING (is_active = TRUE);
-
-CREATE POLICY "Allow authenticated users to read addon entitlements"
-    ON public.addon_feature_entitlements FOR SELECT
-    TO authenticated
-    USING (TRUE);
-
-CREATE POLICY "Allow billing role to view subscriptions"
-    ON public.subscriptions FOR SELECT
-    TO authenticated
-    USING (private.is_org_billing(organization_id));
-
-CREATE POLICY "Allow billing role to view subscription addons"
-    ON public.subscription_addons FOR SELECT
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.subscriptions s
-            WHERE s.id = subscription_id
-              AND private.is_org_billing(s.organization_id)
-        )
-    );
-
-CREATE POLICY "Allow billing role to view change requests"
-    ON public.subscription_change_requests FOR SELECT
-    TO authenticated
-    USING (private.is_org_billing(organization_id));
-
-CREATE POLICY "Allow billing role to create change requests"
-    ON public.subscription_change_requests FOR INSERT
-    TO authenticated
-    WITH CHECK (
-        private.is_org_billing(organization_id)
-        AND requested_by_account_id IN (SELECT id FROM public.accounts WHERE user_id = auth.uid())
-    );
-
-CREATE POLICY "Allow billing role to view invoices"
-    ON public.invoices FOR SELECT
-    TO authenticated
-    USING (private.is_org_billing(organization_id));
-
-CREATE POLICY "Allow billing role to view invoice line items"
-    ON public.invoice_line_items FOR SELECT
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.invoices i
-            WHERE i.id = invoice_id
-              AND private.is_org_billing(i.organization_id)
-        )
-    );
-
-CREATE POLICY "Allow billing role to view credit notes"
-    ON public.credit_notes FOR SELECT
-    TO authenticated
-    USING (private.is_org_billing(organization_id));
-
-CREATE POLICY "Allow billing role to view payments"
-    ON public.payments FOR SELECT
-    TO authenticated
-    USING (private.is_org_billing(organization_id));
-
-CREATE POLICY "Allow members with analytics.view to read their entitlements"
-    ON public.subscription_entitlements FOR SELECT
-    TO authenticated
-    USING (private.has_org_permission(organization_id, 'analytics.view'));
-
-CREATE POLICY "Allow members with analytics.view to view usage records"
-    ON public.usage_records FOR SELECT
-    TO authenticated
-    USING (private.has_org_permission(organization_id, 'analytics.view'));
-
-CREATE POLICY "Allow members with analytics.view to view usage summaries"
-    ON public.usage_summaries FOR SELECT
-    TO authenticated
-    USING (private.has_org_permission(organization_id, 'analytics.view'));
-
-CREATE POLICY "Allow billing role to view subscription events"
-    ON public.subscription_events FOR SELECT
-    TO authenticated
-    USING (private.is_org_billing(organization_id));
-
+GRANT SELECT ON TABLE public.subscription_contracts TO authenticated;
 CREATE POLICY "Allow billing role to view contracts"
     ON public.subscription_contracts FOR SELECT
     TO authenticated
-    USING (private.is_org_billing(organization_id));
+    USING (private.is_org_billing(organization_id) OR public.has_permission('view', 'subscription_contract', id));
 
-
--- ================================================================
--- ENTITLEMENT RECOMPUTE
--- ================================================================
 
 CREATE OR REPLACE FUNCTION private.recompute_entitlements(p_subscription_id BIGINT)
-RETURNS VOID AS $$
-DECLARE
-    v_org_id          BIGINT;
-    v_plan_version_id BIGINT;
-BEGIN
-    SELECT organization_id, plan_version_id
-    INTO   v_org_id, v_plan_version_id
-    FROM   public.subscriptions
-    WHERE  id = p_subscription_id;
+    RETURNS VOID AS $$
+    DECLARE
+        v_org_id          BIGINT;
+        v_plan_version_id BIGINT;
+    BEGIN
+        SELECT organization_id, plan_version_id
+        INTO   v_org_id, v_plan_version_id
+        FROM   public.subscriptions
+        WHERE  id = p_subscription_id;
 
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'subscription % not found', p_subscription_id;
-    END IF;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'subscription % not found', p_subscription_id;
+        END IF;
 
-    DELETE FROM public.subscription_entitlements
-    WHERE  subscription_id = p_subscription_id
-      AND  source IN ('plan', 'addon');
+        DELETE FROM public.subscription_entitlements
+        WHERE  subscription_id = p_subscription_id
+        AND  source IN ('plan', 'addon');
 
-    INSERT INTO public.subscription_entitlements (
-        organization_id, subscription_id, feature_id, feature_key,
-        value_boolean, value_limit, is_unlimited, source, computed_at
-    )
-    SELECT
-        v_org_id,
-        p_subscription_id,
-        f.id,
-        f.key,
-        pfe.value_boolean,
-        pfe.value_limit,
-        (pfe.value_limit = -1),
-        'plan',
-        NOW()
-    FROM  public.plan_feature_entitlements pfe
-    JOIN  public.features f ON f.id = pfe.feature_id
-    WHERE pfe.plan_version_id = v_plan_version_id
-    ON CONFLICT (organization_id, subscription_id, feature_id) DO UPDATE
-        SET value_boolean = EXCLUDED.value_boolean,
-            value_limit   = EXCLUDED.value_limit,
-            is_unlimited  = EXCLUDED.is_unlimited,
-            source        = EXCLUDED.source,
-            computed_at   = EXCLUDED.computed_at;
+        INSERT INTO public.subscription_entitlements (
+            organization_id, subscription_id, feature_id, feature_key,
+            value_boolean, value_limit, is_unlimited, source, computed_at
+        )
+        SELECT
+            v_org_id,
+            p_subscription_id,
+            f.id,
+            f.key,
+            pfe.value_boolean,
+            pfe.value_limit,
+            (pfe.value_limit = -1),
+            'plan',
+            NOW()
+        FROM  public.plan_feature_entitlements pfe
+        JOIN  public.features f ON f.id = pfe.feature_id
+        WHERE pfe.plan_version_id = v_plan_version_id
+        ON CONFLICT (organization_id, subscription_id, feature_id) DO UPDATE
+            SET value_boolean = EXCLUDED.value_boolean,
+                value_limit   = EXCLUDED.value_limit,
+                is_unlimited  = EXCLUDED.is_unlimited,
+                source        = EXCLUDED.source,
+                computed_at   = EXCLUDED.computed_at;
 
-    INSERT INTO public.subscription_entitlements (
-        organization_id, subscription_id, feature_id, feature_key,
-        value_boolean, value_limit, is_unlimited, source, computed_at
-    )
-    SELECT
-        v_org_id,
-        p_subscription_id,
-        f.id,
-        f.key,
-        afe.value_boolean,
-        afe.value_limit,
-        (afe.value_limit = -1),
-        'addon',
-        NOW()
-    FROM  public.subscription_addons sa
-    JOIN  public.addon_feature_entitlements afe ON afe.addon_version_id = sa.addon_version_id
-    JOIN  public.features f                     ON f.id = afe.feature_id
-    WHERE sa.subscription_id = p_subscription_id
-      AND sa.status = 'active'
-    ON CONFLICT (organization_id, subscription_id, feature_id) DO UPDATE
-        SET value_boolean = COALESCE(subscription_entitlements.value_boolean, FALSE)
-                            OR COALESCE(EXCLUDED.value_boolean, FALSE),
-            value_limit   = CASE
-                                WHEN EXCLUDED.value_limit = -1                          THEN -1
-                                WHEN subscription_entitlements.value_limit = -1         THEN -1
-                                ELSE GREATEST(EXCLUDED.value_limit,
-                                              subscription_entitlements.value_limit)
-                            END,
-            is_unlimited  = (EXCLUDED.value_limit = -1
-                             OR subscription_entitlements.value_limit = -1),
-            source        = 'addon',
-            computed_at   = NOW();
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
-
-REVOKE EXECUTE ON FUNCTION private.recompute_entitlements(BIGINT) FROM PUBLIC;
-GRANT  EXECUTE ON FUNCTION private.recompute_entitlements(BIGINT) TO service_role;
+        INSERT INTO public.subscription_entitlements (
+            organization_id, subscription_id, feature_id, feature_key,
+            value_boolean, value_limit, is_unlimited, source, computed_at
+        )
+        SELECT
+            v_org_id,
+            p_subscription_id,
+            f.id,
+            f.key,
+            afe.value_boolean,
+            afe.value_limit,
+            (afe.value_limit = -1),
+            'addon',
+            NOW()
+        FROM  public.subscription_addons sa
+        JOIN  public.addon_feature_entitlements afe ON afe.addon_version_id = sa.addon_version_id
+        JOIN  public.features f                     ON f.id = afe.feature_id
+        WHERE sa.subscription_id = p_subscription_id
+        AND sa.status = 'active'
+        ON CONFLICT (organization_id, subscription_id, feature_id) DO UPDATE
+            SET value_boolean = COALESCE(subscription_entitlements.value_boolean, FALSE)
+                                OR COALESCE(EXCLUDED.value_boolean, FALSE),
+                value_limit   = CASE
+                                    WHEN EXCLUDED.value_limit = -1                          THEN -1
+                                    WHEN subscription_entitlements.value_limit = -1         THEN -1
+                                    ELSE GREATEST(EXCLUDED.value_limit,
+                                                subscription_entitlements.value_limit)
+                                END,
+                is_unlimited  = (EXCLUDED.value_limit = -1
+                                OR subscription_entitlements.value_limit = -1),
+                source        = 'addon',
+                computed_at   = NOW();
+    END;
+    $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
+REVOKE EXECUTE ON FUNCTION private.recompute_entitlements(BIGINT) FROM PUBLIC, authenticated;
+GRANT EXECUTE ON FUNCTION private.recompute_entitlements(BIGINT) TO service_role;

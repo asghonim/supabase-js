@@ -3,8 +3,8 @@
     "description": "Adds supabase migration files",
     "files": [
       {
-        "source": "supabase/migrations/20260000000001_private.sql",
-        "destination": "supabase/migrations/20260000000001_private.sql"
+        "source": "supabase/migrations/20260000000001_uuid.sql",
+        "destination": "supabase/migrations/20260000000001_uuid.sql"
       },
       {
         "source": "supabase/migrations/20260000000002_organizations.sql",

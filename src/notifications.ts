@@ -31,7 +31,6 @@ export function renderHtml(template: string, vars: Partial<Record<string, string
 export type NotificationChannel = Database['public']['Enums']['notification_channel']
 export type NotificationFrequency = Database['public']['Enums']['notification_frequency']
 export type PreferenceInsert = Database['public']['Tables']['notification_preferences']['Insert']
-export type PreferenceUpdate = Database['public']['Tables']['notification_preferences']['Update']
 export type EventInsert = Database['public']['Tables']['notification_events']['Insert']
 export type RecipientInsert = Database['public']['Tables']['notification_recipients']['Insert']
 export type InboxInsert = Database['public']['Tables']['notification_inbox']['Insert']
@@ -140,54 +139,44 @@ const _eventMethods = (supabase: SupabaseClient<Database>) => ({
 })
 
 const _prefMethods = (supabase: SupabaseClient<Database>) => ({
+  /** Full preference history for an account, newest first. */
   listPreferences(accountId: number) {
     return supabase
       .from('notification_preferences')
       .select('*')
       .eq('account_id', accountId)
-      .order('notification_type', { ascending: true })
+      .order('created_at', { ascending: false })
   },
 
-  getPreference(accountId: number, notificationType: string, channel: NotificationChannel) {
+  /** The current value for a (type, channel) pair — the row with the greatest created_at. */
+  latestPreference(accountId: number, notificationType: string, channel: NotificationChannel) {
     return supabase
       .from('notification_preferences')
       .select('*')
       .eq('account_id', accountId)
       .eq('notification_type', notificationType)
       .eq('channel', channel)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single()
   },
 
-  upsertPreference(data: PreferenceInsert) {
+  /** Sets the current value by inserting a new row — preferences are event sourced, never updated or deleted. */
+  insertPreference(data: PreferenceInsert) {
     return supabase
       .from('notification_preferences')
-      .upsert(data, { onConflict: 'account_id,notification_type,channel' })
+      .insert(data)
       .select()
       .single()
-  },
-
-  updatePreference(id: number, data: PreferenceUpdate) {
-    return supabase
-      .from('notification_preferences')
-      .update(data)
-      .eq('id', id)
-      .select()
-      .single()
-  },
-
-  deletePreference(id: number) {
-    return supabase.from('notification_preferences').delete().eq('id', id)
   },
 
   setChannelEnabled(
-    accountId: number,
     notificationType: string,
     channel: NotificationChannel,
     isEnabled: boolean,
     frequency?: NotificationFrequency,
   ) {
     const data: PreferenceInsert = {
-      account_id: accountId,
       notification_type: notificationType,
       channel,
       is_enabled: isEnabled,
@@ -195,7 +184,7 @@ const _prefMethods = (supabase: SupabaseClient<Database>) => ({
     }
     return supabase
       .from('notification_preferences')
-      .upsert(data, { onConflict: 'account_id,notification_type,channel' })
+      .insert(data)
       .select()
       .single()
   },

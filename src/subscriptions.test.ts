@@ -33,7 +33,7 @@ describe('organization_billing_emails RLS', () => {
   beforeAll(async () => {
     orgAdmin = await createTestUser('org-billing-admin')
     member = await createTestUser('org-billing-member')
-    org = await createTestOrg(orgAdmin.accountId, uniqueSlug('org-billing'))
+    org = await createTestOrg(uniqueSlug('org-billing'))
     await addOrgMember(org.id, orgAdmin.accountId, 'owner')
     await addOrgMember(org.id, member.accountId, 'member')
   })
@@ -46,14 +46,14 @@ describe('organization_billing_emails RLS', () => {
   it('org admin can insert a billing email', async () => {
     const { error } = await orgAdmin.client
       .from('organization_billing_emails')
-      .insert({ organization_id: org.id, billing_email: 'billing@acme.com', created_at: new Date().toISOString() })
+      .insert({ organization_id: org.id, billing_email: 'billing@acme.com' })
     expect(error).toBeNull()
   })
 
   it('regular member cannot insert a billing email', async () => {
     const { error } = await member.client
       .from('organization_billing_emails')
-      .insert({ organization_id: org.id, billing_email: 'hack@evil.com', created_at: new Date().toISOString() })
+      .insert({ organization_id: org.id, billing_email: 'hack@evil.com' })
     expect(error).not.toBeNull()
   })
 })
@@ -69,7 +69,7 @@ describe('createSubscriptionsDb', () => {
   beforeAll(async () => {
     orgOwner = await createTestUser('sub-db-owner')
     member = await createTestUser('sub-db-member')
-    org = await createTestOrg(orgOwner.accountId, uniqueSlug('sub-db'))
+    org = await createTestOrg(uniqueSlug('sub-db'))
     await addOrgMember(org.id, orgOwner.accountId, 'owner')
     await addOrgMember(org.id, member.accountId, 'member')
   })
@@ -87,13 +87,12 @@ describe('createSubscriptionsDb', () => {
       expect(data!.organization_id).toBe(org.id)
     })
 
-    it('trigger overwrites a client-supplied created_at with server NOW()', async () => {
-      const fakeDate = '1999-01-01T00:00:00Z'
+    it('created_at is populated automatically by DEFAULT NOW()', async () => {
       const before = new Date()
 
       const { data, error } = await admin
         .from('organization_billing_emails')
-        .insert({ organization_id: org.id, billing_email: 'trigger-test@acme.com', created_at: fakeDate })
+        .insert({ organization_id: org.id, billing_email: 'auto-ts@acme.com' })
         .select()
         .single()
 
@@ -111,6 +110,14 @@ describe('createSubscriptionsDb', () => {
       const subDb = createSubscriptionsDb(member.client)
       const { error } = await subDb.createOrganizationBillingEmail(org.id, 'hack@evil.com')
       expect(error).not.toBeNull()
+    })
+
+    it('cannot supply created_at explicitly — column privilege denied', async () => {
+      const { error } = await orgOwner.client
+        .from('organization_billing_emails')
+        .insert({ organization_id: org.id, billing_email: 'ts-hack@acme.com', created_at: '1999-01-01T00:00:00Z' })
+      expect(error).not.toBeNull()
+      expect(error!.code).toBe('42501')
     })
   })
 })
@@ -130,7 +137,7 @@ describe('createSubscriptionsDb — subscriptions', () => {
 
   beforeAll(async () => {
     orgOwner = await createTestUser('sub-methods-owner')
-    org = await createTestOrg(orgOwner.accountId, uniqueSlug('sub-methods'))
+    org = await createTestOrg(uniqueSlug('sub-methods'))
 
     const { data: plan } = await admin
       .from('plans')
@@ -252,7 +259,7 @@ describe('createSubscriptionsDb — change requests', () => {
 
   beforeAll(async () => {
     orgOwner = await createTestUser('sub-cr-owner')
-    org = await createTestOrg(orgOwner.accountId, uniqueSlug('sub-cr'))
+    org = await createTestOrg(uniqueSlug('sub-cr'))
 
     const { data: plan } = await admin
       .from('plans')
@@ -348,7 +355,7 @@ describe('createSubscriptionsDb — events', () => {
 
   beforeAll(async () => {
     orgOwner = await createTestUser('sub-events-owner')
-    org = await createTestOrg(orgOwner.accountId, uniqueSlug('sub-events'))
+    org = await createTestOrg(uniqueSlug('sub-events'))
 
     const { data: plan } = await admin
       .from('plans')
@@ -416,7 +423,7 @@ describe('createSubscriptionsDb — contracts', () => {
 
   beforeAll(async () => {
     orgOwner = await createTestUser('sub-contracts-owner')
-    org = await createTestOrg(orgOwner.accountId, uniqueSlug('sub-contracts'))
+    org = await createTestOrg(uniqueSlug('sub-contracts'))
 
     const { data: contract } = await admin
       .from('subscription_contracts')

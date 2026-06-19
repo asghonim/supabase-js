@@ -70,7 +70,7 @@ describe('wallets RLS', () => {
   })
 
   it('org members with wallet.view permission can view their org wallet', async () => {
-    const org = await createTestOrg(owner.accountId, uniqueSlug('wallet-org'))
+    const org = await createTestOrg(uniqueSlug('wallet-org'))
     await addOrgMember(org.id, owner.accountId, 'owner')
     await adminDb.createWallet('organization', org.id, 'USD')
 
@@ -82,7 +82,7 @@ describe('wallets RLS', () => {
   })
 
   it('non-member cannot view an org wallet', async () => {
-    const org = await createTestOrg(owner.accountId, uniqueSlug('wallet-nonmember-org'))
+    const org = await createTestOrg(uniqueSlug('wallet-nonmember-org'))
     await adminDb.createWallet('organization', org.id, 'USD')
 
     const db = createWalletsDb(outsider.client)
@@ -373,6 +373,72 @@ describe('holds and available balance', () => {
     const db = createWalletsDb(user.client)
     const { data } = await db.listActiveHolds(walletId)
     expect(data!.some(h => h.id === hold!.id)).toBe(false)
+  })
+})
+
+// ── release_wallet_hold RPC ────────────────────────────────────────────────────
+//
+// Users may no longer UPDATE wallet_holds directly; releasing a hold goes
+// through the SECURITY DEFINER public.release_wallet_hold() function, which is
+// restricted to the wallet owner. The on_update_wallet_holds trigger still sets
+// released_at.
+
+describe('release_wallet_hold (RPC)', () => {
+  let owner: TestUser
+  let outsider: TestUser
+  let adminDb: ReturnType<typeof createAdminWalletsDb>
+  let walletId: number
+
+  beforeAll(async () => {
+    owner    = await createTestUser('release-hold-owner')
+    outsider = await createTestUser('release-hold-outsider')
+    adminDb  = createAdminWalletsDb(admin)
+    const bankAccountId = await getSystemAccount('Bank (USD)')
+
+    const { data: wallet } = await adminDb.createWallet('account', owner.accountId)
+    if (!wallet) throw new Error('failed to create test wallet')
+    walletId = wallet.id
+    await adminDb.deposit(walletId, 100, bankAccountId, 'Fund for release tests')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(owner.id)
+    await deleteTestUser(outsider.id)
+  })
+
+  it('wallet owner can release their own hold', async () => {
+    const { data: hold } = await adminDb.createHold(walletId, 20, 'Owner releases this')
+    expect(hold).not.toBeNull()
+
+    const ownerDb = createWalletsDb(owner.client)
+    const { error } = await ownerDb.releaseHold(hold!.id)
+    expect(error).toBeNull()
+
+    const { data } = await admin
+      .from('wallet_holds')
+      .select('status, released_at')
+      .eq('id', hold!.id)
+      .single()
+    expect(data!.status).toBe('released')
+    expect(data!.released_at).not.toBeNull()
+  })
+
+  it('non-owner cannot release the hold', async () => {
+    const { data: hold } = await adminDb.createHold(walletId, 15, 'Outsider cannot release')
+    expect(hold).not.toBeNull()
+
+    const outsiderDb = createWalletsDb(outsider.client)
+    const { error } = await outsiderDb.releaseHold(hold!.id)
+    expect(error).not.toBeNull()
+
+    const { data } = await admin
+      .from('wallet_holds')
+      .select('status')
+      .eq('id', hold!.id)
+      .single()
+    expect(data!.status).toBe('active')
+
+    await adminDb.updateHoldStatus(hold!.id, 'released')
   })
 })
 

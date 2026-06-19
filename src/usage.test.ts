@@ -32,7 +32,7 @@ describe('usage_records — listRecords RLS', () => {
   beforeAll(async () => {
     member = await createTestUser('usage-list-member')
     outsider = await createTestUser('usage-list-outsider')
-    org = await createTestOrg(member.accountId, uniqueSlug('usage-list'))
+    org = await createTestOrg(uniqueSlug('usage-list'))
     await addOrgMember(org.id, member.accountId, 'member')
   })
 
@@ -74,7 +74,7 @@ describe('usage_records — listRecords filtering', () => {
 
   beforeAll(async () => {
     member = await createTestUser('usage-filter-member')
-    org = await createTestOrg(member.accountId, uniqueSlug('usage-filter'))
+    org = await createTestOrg(uniqueSlug('usage-filter'))
     await addOrgMember(org.id, member.accountId, 'member')
     featureKey = `test.feature.${Date.now()}`
 
@@ -156,7 +156,7 @@ describe('usage_records — record', () => {
 
   beforeAll(async () => {
     member = await createTestUser('usage-record-member')
-    org = await createTestOrg(member.accountId, uniqueSlug('usage-record'))
+    org = await createTestOrg(uniqueSlug('usage-record'))
     await addOrgMember(org.id, member.accountId, 'member')
   })
 
@@ -246,7 +246,7 @@ describe('usage_records — subscription_id trigger resolution', () => {
 
   beforeAll(async () => {
     member = await createTestUser('usage-trigger-member')
-    org = await createTestOrg(member.accountId, uniqueSlug('usage-trigger'))
+    org = await createTestOrg(uniqueSlug('usage-trigger'))
     featureKey = `test.trigger.${Date.now()}`
 
     await admin
@@ -336,7 +336,7 @@ describe('usage_records — listRecords subscriptionId filter', () => {
 
   beforeAll(async () => {
     member = await createTestUser('usage-sub-filter')
-    org = await createTestOrg(member.accountId, uniqueSlug('usage-sub-filter'))
+    org = await createTestOrg(uniqueSlug('usage-sub-filter'))
     await addOrgMember(org.id, member.accountId, 'member')
 
     const { data: plan } = await admin
@@ -433,7 +433,7 @@ describe('usage_summaries — listSummaries RLS', () => {
   beforeAll(async () => {
     member = await createTestUser('usage-summary-member')
     outsider = await createTestUser('usage-summary-outsider')
-    org = await createTestOrg(member.accountId, uniqueSlug('usage-summary'))
+    org = await createTestOrg(uniqueSlug('usage-summary'))
     await addOrgMember(org.id, member.accountId, 'member')
   })
 

@@ -18,6 +18,24 @@ import {
 } from './helpers'
 import { createApiKeysDb, generateApiKey, hashApiKey } from './api-keys'
 
+// ── seed helper ───────────────────────────────────────────────────────────────
+
+async function seedApiKey(orgId: number, accountId: number) {
+  const { data, error } = await admin
+    .from('api_keys')
+    .insert({
+      org_id: orgId,
+      account_id: accountId,
+      name: 'Seeded key',
+      key_prefix: 'sk_live_seeded',
+      key_hash: `seed_hash_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    })
+    .select('id, revoked_at')
+    .single()
+  if (error || !data) throw new Error(`seedApiKey: ${error?.message}`)
+  return data
+}
+
 // ── generateApiKey / hashApiKey (pure functions) ──────────────────────────────
 
 describe('hashApiKey', () => {
@@ -120,7 +138,7 @@ describe('createApiKeysDb — CRUD', () => {
 
   beforeAll(async () => {
     orgOwner = await createTestUser('api-keys-crud-owner')
-    org = await createTestOrg(orgOwner.accountId, uniqueSlug('api-keys-crud'))
+    org = await createTestOrg(uniqueSlug('api-keys-crud'))
     await addOrgMember(org.id, orgOwner.accountId, 'owner')
   })
 
@@ -170,7 +188,10 @@ describe('createApiKeysDb — CRUD', () => {
   })
 
   it('revoke sets revoked_at on the key', async () => {
-    const { data, error } = await adminDb.revoke(keyId)
+    // revoke now goes through the revoke_api_key RPC, which requires the
+    // apikey.create org permission, so it runs on the org owner's client.
+    const ownerDb = createApiKeysDb(orgOwner.client)
+    const { data, error } = await ownerDb.revoke(keyId)
     expect(error).toBeNull()
     expect(data!.revoked_at).toBeTruthy()
   })
@@ -179,5 +200,67 @@ describe('createApiKeysDb — CRUD', () => {
     const { data, error } = await adminDb.verify(fakeHash)
     expect(error).toBeNull()
     expect(data).toBeNull()
+  })
+})
+
+// ── revoke_api_key RPC ────────────────────────────────────────────────────────
+//
+// Users may no longer UPDATE api_keys directly; revoking goes through the
+// SECURITY DEFINER public.revoke_api_key() function, which requires the
+// apikey.create org permission (held by owner/admin roles, not member).
+
+describe('revoke_api_key (RPC)', () => {
+  let owner: TestUser
+  let member: TestUser
+  let org: TestOrg
+
+  beforeAll(async () => {
+    owner = await createTestUser('revoke-rpc-owner')
+    member = await createTestUser('revoke-rpc-member')
+    org = await createTestOrg(uniqueSlug('revoke-rpc'))
+    await addOrgMember(org.id, owner.accountId, 'owner')
+    await addOrgMember(org.id, member.accountId, 'member')
+  })
+
+  afterAll(async () => {
+    await admin.from('api_keys').delete().eq('org_id', org.id)
+    await deleteTestUser(owner.id)
+    await deleteTestUser(member.id)
+  })
+
+  it('org member with apikey.create can revoke a key', async () => {
+    const key = await seedApiKey(org.id, owner.accountId)
+
+    const { error } = await owner.client.rpc('revoke_api_key', { p_api_key_id: key.id })
+    expect(error).toBeNull()
+
+    const { data } = await admin
+      .from('api_keys')
+      .select('revoked_at')
+      .eq('id', key.id)
+      .single()
+    expect(data!.revoked_at).not.toBeNull()
+  })
+
+  it('org member without apikey.create cannot revoke a key', async () => {
+    const key = await seedApiKey(org.id, owner.accountId)
+
+    const { error } = await member.client.rpc('revoke_api_key', { p_api_key_id: key.id })
+    expect(error).not.toBeNull()
+
+    const { data } = await admin
+      .from('api_keys')
+      .select('revoked_at')
+      .eq('id', key.id)
+      .single()
+    expect(data!.revoked_at).toBeNull()
+  })
+
+  it('revoking an already-revoked key is a no-op (no error)', async () => {
+    const key = await seedApiKey(org.id, owner.accountId)
+    await owner.client.rpc('revoke_api_key', { p_api_key_id: key.id })
+
+    const { error } = await owner.client.rpc('revoke_api_key', { p_api_key_id: key.id })
+    expect(error).toBeNull()
   })
 })

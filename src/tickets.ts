@@ -33,13 +33,22 @@ export function createTicketDb(supabase: SupabaseClient<Database>) {
       return supabase.from('tickets').select('*').eq('id', id).single()
     },
 
-    updateStatus(id: number, status: TicketStatus) {
-      return supabase
-        .from('tickets')
-        .update({ status })
-        .eq('id', id)
-        .select()
-        .single()
+    /**
+     * Updates a ticket's status through the set_ticket_status RPC. Users may not
+     * UPDATE tickets directly; the function restricts changes to the submitter,
+     * the assignee, or a holder of the ticket.edit permission, and the
+     * on_update_tickets trigger maintains first_response_at / resolved_at.
+     *
+     * Must be called with the acting user's client — service_role has no
+     * account context and will be rejected by the permission check.
+     */
+    async updateStatus(id: number, status: TicketStatus) {
+      const { error } = await supabase.rpc('set_ticket_status', {
+        p_ticket_id: id,
+        p_status: status,
+      })
+      if (error) return { data: null, error }
+      return supabase.from('tickets').select().eq('id', id).single()
     },
 
     assignTo(id: number, accountId: number | null) {

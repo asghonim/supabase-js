@@ -327,8 +327,52 @@ describe('notification system RLS', () => {
     it("user can insert their own preferences", async () => {
       const { error } = await userA.client
         .from('notification_preferences')
-        .insert({ account_id: userA.accountId, notification_type: 'test.event', channel: 'in_app' })
+        .insert({ notification_type: 'test.event', channel: 'in_app' })
       expect(error).toBeNull()
+    })
+
+    it("user can insert another row for the same type and channel (event sourced, no unique conflict)", async () => {
+      const type = `pref.repeat.${Date.now()}`
+      const first = await userA.client
+        .from('notification_preferences')
+        .insert({ notification_type: type, channel: 'email', is_enabled: true })
+      expect(first.error).toBeNull()
+
+      const second = await userA.client
+        .from('notification_preferences')
+        .insert({ notification_type: type, channel: 'email', is_enabled: false })
+      expect(second.error).toBeNull()
+
+      const { data, error } = await userA.client
+        .from('notification_preferences')
+        .select('is_enabled')
+        .eq('account_id', userA.accountId)
+        .eq('notification_type', type)
+        .eq('channel', 'email')
+      expect(error).toBeNull()
+      expect(data).toHaveLength(2)
+    })
+
+    it("the row with the greatest created_at is the current value", async () => {
+      const type = `pref.latest.${Date.now()}`
+      await userA.client
+        .from('notification_preferences')
+        .insert({ notification_type: type, channel: 'push', is_enabled: true })
+      await userA.client
+        .from('notification_preferences')
+        .insert({ notification_type: type, channel: 'push', is_enabled: false })
+
+      const { data, error } = await userA.client
+        .from('notification_preferences')
+        .select('is_enabled')
+        .eq('account_id', userA.accountId)
+        .eq('notification_type', type)
+        .eq('channel', 'push')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      expect(error).toBeNull()
+      expect(data!.is_enabled).toBe(false)
     })
 
     it("user can read their own preferences", async () => {
@@ -358,154 +402,46 @@ describe('notification system RLS', () => {
       expect(data).toHaveLength(0)
     })
 
-    it("user can update their own preference (toggle off)", async () => {
-      const { data: pref } = await admin
+    it("user cannot UPDATE their own preferences (event sourced — insert only)", async () => {
+      const { data: row } = await admin
         .from('notification_preferences')
-        .select('id')
-        .eq('account_id', userA.accountId)
-        .eq('notification_type', 'test.event')
-        .eq('channel', 'in_app')
+        .insert({ account_id: userA.accountId, notification_type: 'test.update', channel: 'in_app' })
+        .select()
         .single()
 
       const { error } = await userA.client
         .from('notification_preferences')
         .update({ is_enabled: false })
-        .eq('id', pref!.id)
-      expect(error).toBeNull()
+        .eq('id', row!.id)
+      expect(error).not.toBeNull()
     })
 
-    it("user can delete their own preference", async () => {
-      const { data: pref } = await admin
+    it("user cannot DELETE their own preferences (event sourced — insert only)", async () => {
+      const { data: row } = await admin
         .from('notification_preferences')
-        .select('id')
-        .eq('account_id', userA.accountId)
-        .eq('notification_type', 'test.event')
-        .eq('channel', 'in_app')
+        .insert({ account_id: userA.accountId, notification_type: 'test.delete', channel: 'in_app' })
+        .select()
         .single()
 
       const { error } = await userA.client
         .from('notification_preferences')
         .delete()
-        .eq('id', pref!.id)
-      expect(error).toBeNull()
-    })
+        .eq('id', row!.id)
+      expect(error).not.toBeNull()
 
-    it("upsert conflict on (account_id, notification_type, channel) updates the row", async () => {
-      await admin
+      const { data: stillThere } = await admin
         .from('notification_preferences')
-        .insert({ account_id: userA.accountId, notification_type: 'upsert.test', channel: 'email', is_enabled: true })
-
-      const { error } = await userA.client
-        .from('notification_preferences')
-        .upsert(
-          { account_id: userA.accountId, notification_type: 'upsert.test', channel: 'email', is_enabled: false },
-          { onConflict: 'account_id,notification_type,channel' },
-        )
-      expect(error).toBeNull()
-
-      const { data } = await admin
-        .from('notification_preferences')
-        .select('is_enabled')
-        .eq('account_id', userA.accountId)
-        .eq('notification_type', 'upsert.test')
-        .eq('channel', 'email')
-        .single()
-      expect(data!.is_enabled).toBe(false)
+        .select('id')
+        .eq('id', row!.id)
+        .maybeSingle()
+      expect(stillThere).not.toBeNull()
     })
   })
 
   // ── fetchTemplate ─────────────────────────────────────────────────────────
 
   describe('fetchTemplate', () => {
-    it('returns subject and body for an existing active email template', async () => {
-      const type = `fetch.tmpl.${Date.now()}`
-      await admin.from('notification_templates').insert({
-        type,
-        channel: 'email',
-        locale: 'en',
-        subject_template: 'Hello {{name}}',
-        body_template: 'Welcome, {{name}}!',
-        is_active: true,
-      })
-
-      const db = createNotificationsDb(userA.client)
-      const result = await db.fetchTemplate(type)
-      expect(result).not.toBeNull()
-      expect(result!.subject).toBe('Hello {{name}}')
-      expect(result!.body).toBe('Welcome, {{name}}!')
-    })
-
-    it('returns null when no active template exists for the type', async () => {
-      const type = `fetch.tmpl.missing.${Date.now()}`
-      const db = createNotificationsDb(userA.client)
-      const result = await db.fetchTemplate(type)
-      expect(result).toBeNull()
-    })
-
-    it('returns null for an inactive template', async () => {
-      const type = `fetch.tmpl.inactive.${Date.now()}`
-      await admin.from('notification_templates').insert({
-        type,
-        channel: 'email',
-        locale: 'en',
-        body_template: 'Inactive body',
-        is_active: false,
-      })
-
-      const db = createNotificationsDb(userA.client)
-      const result = await db.fetchTemplate(type)
-      expect(result).toBeNull()
-    })
-
-    it('defaults to en locale and returns null for a missing locale', async () => {
-      const type = `fetch.tmpl.locale.${Date.now()}`
-      await admin.from('notification_templates').insert({
-        type,
-        channel: 'email',
-        locale: 'fr',
-        body_template: 'Bonjour',
-        is_active: true,
-      })
-
-      const db = createNotificationsDb(userA.client)
-      // en locale doesn't exist for this type
-      const result = await db.fetchTemplate(type)
-      expect(result).toBeNull()
-
-      // but fr does
-      const frResult = await db.fetchTemplate(type, 'fr')
-      expect(frResult).not.toBeNull()
-      expect(frResult!.body).toBe('Bonjour')
-    })
-
-    it('returns the highest-version template when multiple versions exist', async () => {
-      const type = `fetch.tmpl.version.${Date.now()}`
-      await admin.from('notification_templates').insert([
-        { type, channel: 'email', locale: 'en', body_template: 'v1 body', is_active: true, version: 1 },
-        { type, channel: 'email', locale: 'en', body_template: 'v2 body', is_active: true, version: 2 },
-      ])
-
-      const db = createNotificationsDb(userA.client)
-      const result = await db.fetchTemplate(type)
-      expect(result).not.toBeNull()
-      expect(result!.body).toBe('v2 body')
-    })
-
-    it('does not return email templates for other channels', async () => {
-      const type = `fetch.tmpl.channel.${Date.now()}`
-      await admin.from('notification_templates').insert({
-        type,
-        channel: 'in_app',
-        locale: 'en',
-        body_template: 'In-app only',
-        is_active: true,
-      })
-
-      const db = createNotificationsDb(userA.client)
-      const result = await db.fetchTemplate(type)
-      expect(result).toBeNull()
-    })
-
+    
     it('throws on a non-"no rows" database error instead of returning null', async () => {
       const permissionError = { code: '42501', message: 'permission denied', details: null, hint: null }
       const stubChain = {
@@ -519,37 +455,6 @@ describe('notification system RLS', () => {
 
       const db = createNotificationsDb(stubClient)
       await expect(db.fetchTemplate('any.type')).rejects.toMatchObject({ code: '42501' })
-    })
-  })
-
-  // ── notification_templates ────────────────────────────────────────────────
-
-  describe('notification_templates', () => {
-    it("authenticated user can read active templates", async () => {
-      await admin
-        .from('notification_templates')
-        .insert({ type: 'test.event', channel: 'email', body_template: 'Hello {{name}}', is_active: true })
-
-      const { data, error } = await userA.client
-        .from('notification_templates')
-        .select('type')
-        .eq('type', 'test.event')
-        .eq('is_active', true)
-      expect(error).toBeNull()
-      expect(data?.length).toBeGreaterThan(0)
-    })
-
-    it("inactive templates are filtered by RLS", async () => {
-      await admin
-        .from('notification_templates')
-        .insert({ type: 'test.inactive', channel: 'email', body_template: 'Hi', is_active: false })
-
-      const { data, error } = await userA.client
-        .from('notification_templates')
-        .select('type')
-        .eq('type', 'test.inactive')
-      expect(error).toBeNull()
-      expect(data).toHaveLength(0)
     })
   })
 
@@ -893,9 +798,8 @@ describe('createNotificationsDb', () => {
   describe('preferences', () => {
     const notifType = `db.pref.test.${Date.now()}`
 
-    it('upsertPreference inserts a preference', async () => {
-      const { data, error } = await userDb.upsertPreference({
-        account_id: userA.accountId,
+    it('insertPreference inserts a preference', async () => {
+      const { data, error } = await userDb.insertPreference({
         notification_type: notifType,
         channel: 'in_app',
         is_enabled: true,
@@ -904,84 +808,47 @@ describe('createNotificationsDb', () => {
       expect(data!.notification_type).toBe(notifType)
     })
 
+    it('insertPreference allows another row for the same type and channel (event sourced)', async () => {
+      const { error } = await userDb.insertPreference({
+        notification_type: notifType,
+        channel: 'in_app',
+        is_enabled: false,
+      })
+      expect(error).toBeNull()
+    })
+
     it('listPreferences returns all preferences for an account', async () => {
       const { data, error } = await userDb.listPreferences(userA.accountId)
       expect(error).toBeNull()
-      expect(data!.some(p => p.notification_type === notifType)).toBe(true)
+      expect(data!.filter(p => p.notification_type === notifType).length).toBeGreaterThanOrEqual(2)
     })
 
-    it('getPreference retrieves a specific preference', async () => {
-      const { data, error } = await userDb.getPreference(userA.accountId, notifType, 'in_app')
+    it('latestPreference retrieves the most recently inserted row for a type and channel', async () => {
+      const { data, error } = await userDb.latestPreference(userA.accountId, notifType, 'in_app')
       expect(error).toBeNull()
       expect(data!.notification_type).toBe(notifType)
       expect(data!.channel).toBe('in_app')
-    })
-
-    it('updatePreference updates a preference field', async () => {
-      const { data: pref } = await userDb.getPreference(userA.accountId, notifType, 'in_app')
-      const { data, error } = await userDb.updatePreference(pref!.id, { is_enabled: false })
-      expect(error).toBeNull()
       expect(data!.is_enabled).toBe(false)
     })
 
-    it('setChannelEnabled upserts and enables a channel', async () => {
-      const { data, error } = await userDb.setChannelEnabled(userA.accountId, notifType, 'email', true)
+    it('setChannelEnabled inserts a new current value for a channel', async () => {
+      const { data, error } = await userDb.setChannelEnabled(notifType, 'email', true)
       expect(error).toBeNull()
       expect(data!.is_enabled).toBe(true)
       expect(data!.channel).toBe('email')
     })
 
     it('setChannelEnabled can set frequency', async () => {
-      const { data, error } = await userDb.setChannelEnabled(userA.accountId, notifType, 'email', true, 'daily_digest')
+      const { data, error } = await userDb.setChannelEnabled(notifType, 'email', true, 'daily_digest')
       expect(error).toBeNull()
       expect(data!.frequency).toBe('daily_digest')
     })
 
-    it('deletePreference removes the preference', async () => {
-      const { data: pref } = await userDb.getPreference(userA.accountId, notifType, 'in_app')
-      if (!pref) return
-      const { error } = await userDb.deletePreference(pref.id)
+    it('latestPreference reflects the most recent setChannelEnabled call', async () => {
+      await userDb.setChannelEnabled(notifType, 'email', false)
+      const { data, error } = await userDb.latestPreference(userA.accountId, notifType, 'email')
       expect(error).toBeNull()
-    })
-  })
-
-  // ── template methods ──────────────────────────────────────────────────────
-
-  describe('templates', () => {
-    it('getTemplate retrieves an active template', async () => {
-      const type = `db.tmpl.get.${Date.now()}`
-      await admin.from('notification_templates').insert({
-        type, channel: 'email', locale: 'en', body_template: 'Hello', is_active: true,
-      })
-      const { data, error } = await userDb.getTemplate(type, 'email')
-      expect(error).toBeNull()
-      expect(data!.type).toBe(type)
-    })
-
-    it('listTemplates returns active templates', async () => {
-      const type = `db.tmpl.list.${Date.now()}`
-      await admin.from('notification_templates').insert({
-        type, channel: 'email', locale: 'en', body_template: 'List test', is_active: true,
-      })
-      const { data, error } = await userDb.listTemplates()
-      expect(error).toBeNull()
-      expect(data!.some(t => t.type === type)).toBe(true)
-    })
-
-    it('listTemplates can filter by type', async () => {
-      const type = `db.tmpl.filter.${Date.now()}`
-      await admin.from('notification_templates').insert({
-        type, channel: 'in_app', locale: 'en', body_template: 'Filter test', is_active: true,
-      })
-      const { data, error } = await userDb.listTemplates({ type })
-      expect(error).toBeNull()
-      expect(data!.every(t => t.type === type)).toBe(true)
-    })
-
-    it('listTemplates can filter by channel', async () => {
-      const { data, error } = await userDb.listTemplates({ channel: 'email' })
-      expect(error).toBeNull()
-      expect(data!.every(t => t.channel === 'email')).toBe(true)
+      expect(data!.is_enabled).toBe(false)
     })
   })
 

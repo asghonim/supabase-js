@@ -1,10 +1,5 @@
 {
   "features": {
-    "ghcr.io/devcontainers-extra/features/supabase-cli": {
-      "version": "1.0.7",
-      "resolved": "ghcr.io/devcontainers-extra/features/supabase-cli@sha256:53c2def442886b29bb7719ffbe2e67bdbdeb8651b38d0bbfbd8dd6ffc3645cd9",
-      "integrity": "sha256:53c2def442886b29bb7719ffbe2e67bdbdeb8651b38d0bbfbd8dd6ffc3645cd9"
-    },
     "ghcr.io/devcontainers-extra/features/vercel-cli": {
       "version": "1.0.4",
       "resolved": "ghcr.io/devcontainers-extra/features/vercel-cli@sha256:f1c31c2ed23f59ad08b6aecef382e2bb4510e6452956f618fdcb40f28a50c2bf",
