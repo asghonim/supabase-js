@@ -7,6 +7,7 @@ INSERT INTO public.permissions (key, name, description, scope) VALUES
 	('content.create',  'Create Content',  'Create new content items',               'project'),
 	('content.edit',    'Edit Content',    'Edit content and manage versions',        'project'),
 	('content.publish', 'Publish Content', 'Publish and unpublish content',           'project'),
+	('content.archive', 'Archive Content', 'Archive content items',                   'project'),
 	('content.delete',  'Delete Content',  'Delete content items',                    'project'),
 	('media.upload',    'Upload Media',    'Upload files to the media library',        'project'),
 	('media.manage',    'Manage Media',    'Organise and delete media library assets', 'project');
@@ -17,7 +18,7 @@ INSERT INTO public.platform_role_permissions (platform_role_id, permission_id)
 	FROM public.platform_roles pr
 	JOIN public.permissions p ON p.key IN (
 		'content.view', 'content.create', 'content.edit',
-		'content.publish', 'content.delete', 'media.upload', 'media.manage'
+		'content.publish', 'content.archive', 'content.delete', 'media.upload', 'media.manage'
 	)
 	WHERE pr.key = 'super_admin'
 	ON CONFLICT DO NOTHING;
@@ -28,7 +29,7 @@ INSERT INTO public.organization_role_permissions (organization_role_id, permissi
 	FROM public.organization_roles r
 	JOIN public.permissions p ON p.key IN (
 		'content.view', 'content.create', 'content.edit',
-		'content.publish', 'content.delete', 'media.upload', 'media.manage'
+		'content.publish', 'content.archive', 'content.delete', 'media.upload', 'media.manage'
 	)
 	WHERE r.key = 'owner' AND r.organization_id IS NULL;
 
@@ -38,11 +39,11 @@ INSERT INTO public.organization_role_permissions (organization_role_id, permissi
 	FROM public.organization_roles r
 	JOIN public.permissions p ON p.key IN (
 		'content.view', 'content.create', 'content.edit',
-		'content.publish', 'content.delete', 'media.upload', 'media.manage'
+		'content.publish', 'content.archive', 'content.delete', 'media.upload', 'media.manage'
 	)
 	WHERE r.key = 'admin' AND r.organization_id IS NULL;
 
--- member → view, create, edit, upload (no publish or delete)
+-- member → view, create, edit, upload (no publish, archive, or delete)
 INSERT INTO public.organization_role_permissions (organization_role_id, permission_id)
 	SELECT r.id, p.id
 	FROM public.organization_roles r
@@ -591,7 +592,7 @@ DECLARE
 	v_org_id BIGINT;
 BEGIN
 	SELECT organization_id INTO v_org_id FROM public.contents WHERE id = p_content_id AND deleted_at IS NULL;
-	IF NOT (private.has_org_permission(v_org_id, 'content.edit') OR public.has_permission('edit', 'content', p_content_id)) THEN
+	IF NOT (private.has_org_permission(v_org_id, 'content.archive') OR public.has_permission('archive', 'content', p_content_id)) THEN
 		RAISE EXCEPTION 'Insufficient permissions to archive content';
 	END IF;
 	UPDATE public.contents SET status = 'archived' WHERE id = p_content_id AND deleted_at IS NULL;

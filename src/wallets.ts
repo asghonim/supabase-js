@@ -19,7 +19,7 @@ export function createWalletsDb(supabase: SupabaseClient<Database>) {
         .from('wallets')
         .select('*')
         .eq('id', id)
-        .single()
+        .maybeSingle()
     },
 
     getWalletByOwner(ownerType: WalletOwnerType, ownerId: number, currency = 'USD') {
@@ -42,9 +42,9 @@ export function createWalletsDb(supabase: SupabaseClient<Database>) {
         .from('wallets')
         .select('ledger_account_id')
         .eq('id', walletId)
-        .single()
+        .maybeSingle()
 
-      if (wErr || !wallet) return { data: null, error: wErr }
+      if (wErr || !wallet) return { data: [], error: wErr }
 
       let query = supabase
         .from('journal_lines')

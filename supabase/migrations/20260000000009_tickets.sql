@@ -80,6 +80,7 @@ CREATE OR REPLACE FUNCTION public.set_ticket_status(p_ticket_id BIGINT, p_status
 				  AND a.user_id = auth.uid()
 			)
 			OR public.has_permission('edit', 'ticket', p_ticket_id)
+			OR private.has_platform_permission('platform.support')
 		) THEN
 			RAISE EXCEPTION 'Insufficient permissions to update ticket status';
 		END IF;
@@ -100,6 +101,7 @@ CREATE POLICY "Allow users to view own tickets"
               AND a.user_id = auth.uid()
         )
         OR public.has_permission('view', 'ticket', id)
+        OR private.has_platform_permission('platform.support')
     );
 
 
