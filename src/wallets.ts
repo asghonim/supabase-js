@@ -67,6 +67,16 @@ export function createWalletsDb(supabase: SupabaseClient<Database>) {
         .order('created_at', { ascending: false })
     },
 
+    /**
+     * Releases an active hold owned by the calling user. Goes through the
+     * release_wallet_hold RPC, which enforces wallet ownership; users cannot
+     * UPDATE wallet_holds directly. The on_update_wallet_holds trigger sets
+     * released_at.
+     */
+    releaseHold(holdId: number) {
+      return supabase.rpc('release_wallet_hold', { p_hold_id: holdId })
+    },
+
     listSystemLedgerAccounts(currency?: string) {
       let query = supabase
         .from('ledger_accounts')

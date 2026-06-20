@@ -1,34 +1,27 @@
 #!/usr/bin/env node
 /* eslint-disable @typescript-eslint/no-require-imports */
 
-// eslint-disable-next-line no-undef
 const { Command } = require('commander')
-// eslint-disable-next-line no-undef
-const { addCommand, loadManifest } = require('../src/commands/add.js')
+const { installCommand } = require('../src/commands/install.js')
 
 const program = new Command()
-const manifest = loadManifest()
-const availableTemplates = Object.entries(manifest)
-  .map(([name, definition]) => `  - ${name}: ${definition.description}`)
-  .join('\n')
 
 program
   .name('@asghonim/supabase-js')
-  .description('CLI for adding source templates')
-  .addHelpText('after', `\nAvailable templates:\n${availableTemplates}\n`)
+  .description('Template for Supabase JS projects')
 
-program
-  .command('add')
-  .argument('<name>', 'template name')
-  .action((name) => {
+  program
+  .command('install')
+  .description('Copy all migration SQL files without checking the manifest')
+  .option('-d, --dir <directory>', 'target directory', process.cwd())
+  .action((options) => {
     try {
-      addCommand(name)
+      installCommand(options.dir)
     } catch (error) {
-      program.error(error instanceof Error ? error.message : 'Unexpected error while adding template.', {
+      program.error(error instanceof Error ? error.message : 'Unexpected error while installing migrations.', {
         exitCode: 1,
       })
     }
   })
 
-// eslint-disable-next-line no-undef
 program.parse(process.argv)

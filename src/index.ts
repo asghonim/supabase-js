@@ -5,7 +5,7 @@ export { createNotificationsDb } from './notifications';
 export type {
   NotificationsDb, EventInsert, InboxInsert,
   NotificationChannel, NotificationFrequency,
-  PreferenceInsert, PreferenceUpdate, RecipientInsert
+  PreferenceInsert, RecipientInsert
 } from './notifications';
 export { createTicketDb } from './tickets';
 export type {

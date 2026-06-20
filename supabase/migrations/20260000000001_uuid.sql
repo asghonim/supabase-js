@@ -5,6 +5,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE SCHEMA IF NOT EXISTS private;
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA private TO authenticated, service_role;
 
 -- UUID v7: time-ordered, sortable, suitable as a secondary unique identifier
 CREATE OR REPLACE FUNCTION private.gen_uuid_v7()

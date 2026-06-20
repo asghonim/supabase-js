@@ -7,7 +7,6 @@
 	"features": {
 		"ghcr.io/devcontainers-extra/features/vercel-cli": {},
 		"ghcr.io/devcontainers/features/github-cli": {},
-		"ghcr.io/devcontainers-extra/features/supabase-cli": {},
 		"ghcr.io/schlich/devcontainer-features/playwright": {},
 		"ghcr.io/postfinance/devcontainer-features/playwright-deps": {}
 	},

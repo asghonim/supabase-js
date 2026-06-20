@@ -1,13 +1,13 @@
 import type { SupabaseClient, PostgrestSingleResponse } from '@supabase/supabase-js'
 import type { Database } from './database'
 
-type PermissionsRow         = Database['public']['Tables']['permissions']['Row']
+export type PermissionsRow         = Database['public']['Tables']['permissions']['Row']
 type PlatformRoleRow        = Database['public']['Tables']['platform_roles']['Row']
 type AccountPlatformRoleRow = Database['public']['Tables']['account_platform_roles']['Row']
 type OrgRoleRow             = Database['public']['Tables']['organization_roles']['Row']
 type OrgRolePermissionsRow  = Database['public']['Tables']['organization_role_permissions']['Row']
 
-type PlatformRoleWithPermissions = PlatformRoleRow & {
+export type PlatformRoleWithPermissions = PlatformRoleRow & {
   platform_role_permissions: Array<{ permission_id: number; permissions: PermissionsRow | null }>
 }
 

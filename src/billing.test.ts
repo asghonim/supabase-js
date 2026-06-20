@@ -35,7 +35,7 @@ describe('invoices RLS', () => {
   beforeAll(async () => {
     member = await createTestUser('billing-invoice-member')
     outsider = await createTestUser('billing-invoice-outsider')
-    org = await createTestOrg(member.accountId, uniqueSlug('billing-invoices'))
+    org = await createTestOrg(uniqueSlug('billing-invoices'))
     await addOrgMember(org.id, member.accountId, 'billing')
   })
 
@@ -59,29 +59,33 @@ describe('invoices RLS', () => {
   })
 
   it('listInvoices orders by created_at descending', async () => {
-    // create two invoices via admin to verify ordering
-    const now = new Date()
-    const earlier = new Date(now.getTime() - 60_000).toISOString()
-    const later = now.toISOString()
-
+    // Insert two invoices without explicit timestamps; inv2 is inserted after
+    // inv1 so it will have a later created_at via DEFAULT NOW().
     const { data: inv1 } = await admin
       .from('invoices')
-      .insert({ organization_id: org.id, number: `INV-TEST-1-${Date.now()}`, status: 'draft', created_at: earlier })
-      .select('id')
+      .insert({ organization_id: org.id, number: `INV-TEST-1-${Date.now()}`, status: 'draft' })
+      .select('id, created_at')
       .single()
 
     const { data: inv2 } = await admin
       .from('invoices')
-      .insert({ organization_id: org.id, number: `INV-TEST-2-${Date.now()}`, status: 'draft', created_at: later })
-      .select('id')
+      .insert({ organization_id: org.id, number: `INV-TEST-2-${Date.now()}`, status: 'draft' })
+      .select('id, created_at')
       .single()
 
     try {
       const db = createBillingDb(member.client)
       const { data, error } = await db.listInvoices(org.id)
       expect(error).toBeNull()
+      // Verify the list is ordered by created_at descending
+      for (let i = 1; i < data!.length; i++) {
+        expect(data![i - 1].created_at >= data![i].created_at).toBe(true)
+      }
+      // inv2 was inserted after inv1 so it should appear first
       const ids = data!.map(i => i.id)
-      expect(ids.indexOf(inv2!.id)).toBeLessThan(ids.indexOf(inv1!.id))
+      if (inv1!.created_at !== inv2!.created_at) {
+        expect(ids.indexOf(inv2!.id)).toBeLessThan(ids.indexOf(inv1!.id))
+      }
     } finally {
       if (inv1) await admin.from('invoices').delete().eq('id', inv1.id)
       if (inv2) await admin.from('invoices').delete().eq('id', inv2.id)
@@ -135,7 +139,7 @@ describe('payments RLS', () => {
   beforeAll(async () => {
     member = await createTestUser('billing-payments-member')
     outsider = await createTestUser('billing-payments-outsider')
-    org = await createTestOrg(member.accountId, uniqueSlug('billing-payments'))
+    org = await createTestOrg(uniqueSlug('billing-payments'))
     await addOrgMember(org.id, member.accountId, 'billing')
   })
 
@@ -176,7 +180,7 @@ describe('credit_notes RLS', () => {
   beforeAll(async () => {
     member = await createTestUser('billing-cn-member')
     outsider = await createTestUser('billing-cn-outsider')
-    org = await createTestOrg(member.accountId, uniqueSlug('billing-cn'))
+    org = await createTestOrg(uniqueSlug('billing-cn'))
     await addOrgMember(org.id, member.accountId, 'billing')
   })
 
@@ -334,7 +338,7 @@ describe('invoices — getInvoiceByNumber / getInvoiceByProviderId / limit', () 
 
   beforeAll(async () => {
     member = await createTestUser('billing-extra-member')
-    org = await createTestOrg(member.accountId, uniqueSlug('billing-extra'))
+    org = await createTestOrg(uniqueSlug('billing-extra'))
     await addOrgMember(org.id, member.accountId, 'billing')
 
     const { data: inv } = await admin
@@ -407,7 +411,7 @@ describe('payments — getPayment / getPaymentByProviderId / limit', () => {
 
   beforeAll(async () => {
     member = await createTestUser('billing-pay-get-member')
-    org = await createTestOrg(member.accountId, uniqueSlug('billing-pay-get'))
+    org = await createTestOrg(uniqueSlug('billing-pay-get'))
     await addOrgMember(org.id, member.accountId, 'billing')
 
     const { data: inv } = await admin

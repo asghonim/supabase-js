@@ -61,7 +61,7 @@ export async function deleteTestUser(userId: string) {
 /**
  * Creates an organization row (bypasses RLS via admin).
  */
-export async function createTestOrg(ownerAccountId: number, slug: string): Promise<TestOrg> {
+export async function createTestOrg(slug: string): Promise<TestOrg> {
   const { data: org, error } = await admin
     .from('organizations')
     .insert({ slug })

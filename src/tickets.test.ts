@@ -176,10 +176,13 @@ describe('createTicketDb', () => {
   })
 
   describe('updateStatus', () => {
-    it('admin can update ticket status', async () => {
+    // updateStatus now goes through the set_ticket_status RPC, so it runs on the
+    // acting user's client (here the submitter), not service_role.
+    it('submitter can update ticket status', async () => {
       const ticket = await seedTicket(userA.accountId)
 
-      const { data, error } = await adminDb.updateStatus(ticket.id, 'in_progress')
+      const userADb = createTicketDb(userA.client)
+      const { data, error } = await userADb.updateStatus(ticket.id, 'in_progress')
       expect(error).toBeNull()
       expect(data!.status).toBe('in_progress')
     })
@@ -187,7 +190,8 @@ describe('createTicketDb', () => {
     it('sets resolved_at automatically when resolved', async () => {
       const ticket = await seedTicket(userA.accountId)
 
-      const { data, error } = await adminDb.updateStatus(ticket.id, 'resolved')
+      const userADb = createTicketDb(userA.client)
+      const { data, error } = await userADb.updateStatus(ticket.id, 'resolved')
       expect(error).toBeNull()
       expect(data!.resolved_at).toBeTruthy()
     })
@@ -211,5 +215,75 @@ describe('createTicketDb', () => {
       expect(error).toBeNull()
       expect(data!.assigned_to_account_id).toBeNull()
     })
+  })
+})
+
+// ── set_ticket_status RPC ──────────────────────────────────────────────────────
+//
+// Users may no longer UPDATE tickets directly; status changes go through the
+// SECURITY DEFINER public.set_ticket_status() function, which is restricted to
+// the submitter, the assignee, or a holder of the ticket.edit permission.
+
+describe('set_ticket_status (RPC)', () => {
+  let userA: TestUser
+  let userB: TestUser
+
+  beforeAll(async () => {
+    userA = await createTestUser('set-status-a')
+    userB = await createTestUser('set-status-b')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+  })
+
+  async function statusOf(ticketId: number) {
+    const { data } = await admin.from('tickets').select('status, resolved_at').eq('id', ticketId).single()
+    return data!
+  }
+
+  it('submitter can change the status of their own ticket', async () => {
+    const ticket = await seedTicket(userA.accountId)
+
+    const { error } = await userA.client.rpc('set_ticket_status', {
+      p_ticket_id: ticket.id,
+      p_status: 'in_progress',
+    })
+    expect(error).toBeNull()
+    expect((await statusOf(ticket.id)).status).toBe('in_progress')
+  })
+
+  it('assignee can change the status of a ticket assigned to them', async () => {
+    const ticket = await seedTicket(userB.accountId, { assigned_to_account_id: userA.accountId })
+
+    const { error } = await userA.client.rpc('set_ticket_status', {
+      p_ticket_id: ticket.id,
+      p_status: 'waiting_customer',
+    })
+    expect(error).toBeNull()
+    expect((await statusOf(ticket.id)).status).toBe('waiting_customer')
+  })
+
+  it('unrelated user cannot change ticket status', async () => {
+    const ticket = await seedTicket(userB.accountId)
+
+    const { error } = await userA.client.rpc('set_ticket_status', {
+      p_ticket_id: ticket.id,
+      p_status: 'closed',
+    })
+    expect(error).not.toBeNull()
+    expect((await statusOf(ticket.id)).status).toBe('new')
+  })
+
+  it('on_update_tickets trigger still sets resolved_at when resolved via RPC', async () => {
+    const ticket = await seedTicket(userA.accountId)
+
+    const { error } = await userA.client.rpc('set_ticket_status', {
+      p_ticket_id: ticket.id,
+      p_status: 'resolved',
+    })
+    expect(error).toBeNull()
+    expect((await statusOf(ticket.id)).resolved_at).not.toBeNull()
   })
 })

@@ -16,210 +16,14 @@ type CommentsSchema = {
   __InternalSupabase: { PostgrestVersion: "14.5" }
   public: {
     Tables: {
-      conversations: {
-        Row: {
-          id:                  string
-          tenant_id:           number | null
-          type:                ConversationType
-          title:               string | null
-          message_count:       number
-          last_message_at:     string | null
-          last_message_number: number | null
-          created_at:          string
-          created_by:          number | null
-        }
-        Insert: {
-          id?:                  string
-          tenant_id?:           number | null
-          type?:                ConversationType
-          title?:               string | null
-          message_count?:       number
-          last_message_at?:     string | null
-          last_message_number?: number | null
-          created_at?:          string
-          created_by?:          number | null
-        }
-        Update: {
-          id?:                  string
-          tenant_id?:           number | null
-          type?:                ConversationType
-          title?:               string | null
-          message_count?:       number
-          last_message_at?:     string | null
-          last_message_number?: number | null
-          created_at?:          string
-          created_by?:          number | null
-        }
-        Relationships: []
-      }
-      conversation_participants: {
-        Row: {
-          conversation_id: string
-          account_id:      number
-          role:            ConversationParticipantRole
-          joined_at:       string
-        }
-        Insert: {
-          conversation_id: string
-          account_id:      number
-          role?:           ConversationParticipantRole
-          joined_at?:      string
-        }
-        Update: {
-          conversation_id?: string
-          account_id?:      number
-          role?:            ConversationParticipantRole
-          joined_at?:       string
-        }
-        Relationships: []
-      }
-      conversation_targets: {
-        Row: {
-          conversation_id: string
-          target_type:     string
-          target_id:       string
-        }
-        Insert: {
-          conversation_id: string
-          target_type:     string
-          target_id:       string
-        }
-        Update: {
-          conversation_id?: string
-          target_type?:     string
-          target_id?:       string
-        }
-        Relationships: []
-      }
-      messages: {
-        Row: {
-          id:                string
-          conversation_id:   string
-          sender_id:         number
-          body:              string | null
-          parent_message_id: string | null
-          message_number:    number
-          created_at:        string
-          edited_at:         string | null
-          deleted_at:        string | null
-        }
-        Insert: {
-          id?:                string
-          conversation_id:    string
-          sender_id:          number
-          body?:              string | null
-          parent_message_id?: string | null
-          message_number?:    number
-          created_at?:        string
-          edited_at?:         string | null
-          deleted_at?:        string | null
-        }
-        Update: {
-          id?:                string
-          conversation_id?:   string
-          sender_id?:         number
-          body?:              string | null
-          parent_message_id?: string | null
-          message_number?:    number
-          created_at?:        string
-          edited_at?:         string | null
-          deleted_at?:        string | null
-        }
-        Relationships: []
-      }
-      message_attachments: {
-        Row: {
-          id:           string
-          message_id:   string
-          storage_key:  string
-          file_name:    string
-          content_type: string | null
-          size:         number | null
-          created_at:   string
-        }
-        Insert: {
-          id?:          string
-          message_id:   string
-          storage_key:  string
-          file_name:    string
-          content_type?: string | null
-          size?:         number | null
-          created_at?:   string
-        }
-        Update: {
-          id?:           string
-          message_id?:   string
-          storage_key?:  string
-          file_name?:    string
-          content_type?: string | null
-          size?:         number | null
-          created_at?:   string
-        }
-        Relationships: []
-      }
-      message_reactions: {
-        Row: {
-          message_id: string
-          account_id: number
-          reaction:   string
-        }
-        Insert: {
-          message_id: string
-          account_id: number
-          reaction:   string
-        }
-        Update: {
-          message_id?: string
-          account_id?: number
-          reaction?:   string
-        }
-        Relationships: []
-      }
-      conversation_reads: {
-        Row: {
-          conversation_id:          string
-          account_id:               number
-          last_read_message_id:     string | null
-          last_read_message_number: number | null
-          last_read_at:             string
-        }
-        Insert: {
-          conversation_id:           string
-          account_id:                number
-          last_read_message_id?:     string | null
-          last_read_message_number?: number | null
-          last_read_at?:             string
-        }
-        Update: {
-          conversation_id?:          string
-          account_id?:               number
-          last_read_message_id?:     string | null
-          last_read_message_number?: number | null
-          last_read_at?:             string
-        }
-        Relationships: []
-      }
-      message_versions: {
-        Row: {
-          id:         string
-          message_id: string
-          body:       string
-          created_at: string
-        }
-        Insert: {
-          id?:         string
-          message_id:  string
-          body:        string
-          created_at?: string
-        }
-        Update: {
-          id?:         string
-          message_id?: string
-          body?:       string
-          created_at?: string
-        }
-        Relationships: []
-      }
+      conversations: Database['public']['Tables']['conversations']
+      conversation_participants: Database['public']['Tables']['conversation_participants']
+      conversation_targets: Database['public']['Tables']['conversation_targets']
+      messages: Database['public']['Tables']['messages']
+      message_attachments: Database['public']['Tables']['message_attachments']
+      message_reactions: Database['public']['Tables']['message_reactions']
+      conversation_reads: Database['public']['Tables']['conversation_reads']
+      message_versions: Database['public']['Tables']['message_versions']
     }
     Views:          { [_ in never]: never }
     Functions:      { [_ in never]: never }
@@ -288,7 +92,7 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
       return query
     },
 
-    getConversation(id: string) {
+    getConversation(id: number) {
       return q.from('conversations').select('*').eq('id', id).single()
     },
 
@@ -296,17 +100,17 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
       return q.from('conversations').insert(data).select().single()
     },
 
-    updateConversation(id: string, data: ConversationUpdate) {
+    updateConversation(id: number, data: ConversationUpdate) {
       return q.from('conversations').update(data).eq('id', id).select().single()
     },
 
-    deleteConversation(id: string) {
+    deleteConversation(id: number) {
       return q.from('conversations').delete().eq('id', id)
     },
 
     // ── Participants ───────────────────────────────────────────────────
 
-    listParticipants(conversationId: string) {
+    listParticipants(conversationId: number) {
       return q
         .from('conversation_participants')
         .select('*')
@@ -319,7 +123,7 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
     },
 
     updateParticipantRole(
-      conversationId: string,
+      conversationId: number,
       accountId: number,
       role: ConversationParticipantRole,
     ) {
@@ -332,7 +136,7 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    removeParticipant(conversationId: string, accountId: number) {
+    removeParticipant(conversationId: number, accountId: number) {
       return q
         .from('conversation_participants')
         .delete()
@@ -342,7 +146,7 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
 
     // ── Conversation targets ───────────────────────────────────────────
 
-    getTarget(conversationId: string) {
+    getTarget(conversationId: number) {
       return q
         .from('conversation_targets')
         .select('*')
@@ -370,12 +174,12 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
     // ── Messages ───────────────────────────────────────────────────────
 
     listMessages(
-      conversationId: string,
+      conversationId: number,
       opts?: {
         limit?:           number
         before?:          number
         after?:           number
-        parentMessageId?: string | null
+        parentMessageId?: number | null
       },
     ) {
       let query = q
@@ -400,7 +204,7 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
       return query
     },
 
-    getMessage(id: string) {
+    getMessage(id: number) {
       return q.from('messages').select('*').eq('id', id).single()
     },
 
@@ -408,27 +212,35 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
       return q.from('messages').insert(data as MessageInsert).select().single()
     },
 
-    editMessage(id: string, body: string) {
-      return q
-        .from('messages')
-        .update({ body, edited_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single()
+    /**
+     * Edits a message body through the edit_message RPC. Users may not UPDATE
+     * messages directly; the function restricts edits to the sender (or a holder
+     * of message.edit) and records the prior body in message_versions.
+     *
+     * Must be called with the acting user's client — service_role has no account
+     * context and will be rejected by the permission check.
+     */
+    async editMessage(id: number, body: string) {
+      const { error } = await supabase.rpc('edit_message', { p_message_id: id, p_body: body })
+      if (error) return { data: null, error }
+      return q.from('messages').select().eq('id', id).single()
     },
 
-    softDeleteMessage(id: string) {
-      return q
-        .from('messages')
-        .update({ deleted_at: new Date().toISOString(), body: null })
-        .eq('id', id)
-        .select()
-        .single()
+    /**
+     * Soft-deletes a message through the delete_message RPC. Users may not UPDATE
+     * messages directly. Returns the RPC response (no row — the message is no
+     * longer visible to the caller once deleted).
+     *
+     * Must be called with the acting user's client — service_role has no account
+     * context and will be rejected by the permission check.
+     */
+    softDeleteMessage(id: number) {
+      return supabase.rpc('delete_message', { p_message_id: id })
     },
 
     // ── Attachments ────────────────────────────────────────────────────
 
-    listAttachments(messageId: string) {
+    listAttachments(messageId: number) {
       return q.from('message_attachments').select('*').eq('message_id', messageId)
     },
 
@@ -436,13 +248,13 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
       return q.from('message_attachments').insert(data).select().single()
     },
 
-    removeAttachment(id: string) {
+    removeAttachment(id: number) {
       return q.from('message_attachments').delete().eq('id', id)
     },
 
     // ── Reactions ──────────────────────────────────────────────────────
 
-    listReactions(messageId: string) {
+    listReactions(messageId: number) {
       return q.from('message_reactions').select('*').eq('message_id', messageId)
     },
 
@@ -454,18 +266,21 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
         .single()
     },
 
-    removeReaction(messageId: string, accountId: number, reaction: string) {
-      return q
-        .from('message_reactions')
-        .delete()
-        .eq('message_id', messageId)
-        .eq('account_id', accountId)
-        .eq('reaction', reaction)
+    /**
+     * Removes the calling user's own reaction through the remove_message_reaction
+     * RPC. Users may not DELETE message_reactions directly; the function only
+     * removes a reaction owned by the caller (or with message_reaction.delete).
+     *
+     * Must be called with the acting user's client — service_role has no account
+     * context and removes nothing.
+     */
+    removeReaction(messageId: number, reaction: string) {
+      return supabase.rpc('remove_message_reaction', { p_message_id: messageId, p_reaction: reaction })
     },
 
     // ── Read state ─────────────────────────────────────────────────────
 
-    getReadState(conversationId: string, accountId: number) {
+    getReadState(conversationId: number, accountId: number) {
       return q
         .from('conversation_reads')
         .select('*')
@@ -475,22 +290,18 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
     },
 
     markRead(
-      conversationId: string,
-      accountId: number,
-      lastReadMessageId: string,
+      conversationId: number,
+      lastReadMessageId: number,
       lastReadMessageNumber: number,
     ) {
       return q
         .from('conversation_reads')
-        .upsert(
+        .insert(
           {
             conversation_id:           conversationId,
-            account_id:                accountId,
             last_read_message_id:      lastReadMessageId,
-            last_read_message_number:  lastReadMessageNumber,
-            last_read_at:              new Date().toISOString(),
-          },
-          { onConflict: 'conversation_id,account_id' },
+            last_read_message_number:  lastReadMessageNumber
+          }
         )
         .select()
         .single()
@@ -498,7 +309,7 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
 
     // ── Message versions ───────────────────────────────────────────────
 
-    listVersions(messageId: string) {
+    listVersions(messageId: number) {
       return q
         .from('message_versions')
         .select('*')
@@ -506,7 +317,7 @@ export function createCommentsDb(supabase: SupabaseClient<Database>) {
         .order('created_at', { ascending: true })
     },
 
-    snapshotVersion(messageId: string, body: string) {
+    snapshotVersion(messageId: number, body: string) {
       return q
         .from('message_versions')
         .insert({ message_id: messageId, body })

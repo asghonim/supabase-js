@@ -32,7 +32,7 @@ describe('subscription_entitlements — listForOrg RLS', () => {
   beforeAll(async () => {
     member = await createTestUser('ent-list-org-member')
     outsider = await createTestUser('ent-list-org-outsider')
-    org = await createTestOrg(member.accountId, uniqueSlug('ent-list-org'))
+    org = await createTestOrg(uniqueSlug('ent-list-org'))
     await addOrgMember(org.id, member.accountId, 'member')
   })
 
@@ -84,7 +84,7 @@ describe('subscription_entitlements — listForSubscription RLS', () => {
   beforeAll(async () => {
     member = await createTestUser('ent-list-sub-member')
     outsider = await createTestUser('ent-list-sub-outsider')
-    org = await createTestOrg(member.accountId, uniqueSlug('ent-list-sub'))
+    org = await createTestOrg(uniqueSlug('ent-list-sub'))
     await addOrgMember(org.id, member.accountId, 'member')
 
     // attempt to find an existing subscription for this org (may not exist in test env)
@@ -132,7 +132,7 @@ describe('subscription_entitlements — checkFeature', () => {
   beforeAll(async () => {
     member = await createTestUser('ent-check-member')
     outsider = await createTestUser('ent-check-outsider')
-    org = await createTestOrg(member.accountId, uniqueSlug('ent-check'))
+    org = await createTestOrg(uniqueSlug('ent-check'))
     await addOrgMember(org.id, member.accountId, 'member')
   })
 
@@ -170,7 +170,7 @@ describe('subscription_entitlements — with real subscription data', () => {
 
   beforeAll(async () => {
     member = await createTestUser('ent-real-member')
-    org = await createTestOrg(member.accountId, uniqueSlug('ent-real'))
+    org = await createTestOrg(uniqueSlug('ent-real'))
     await addOrgMember(org.id, member.accountId, 'member')
 
     featureKey = `test.cov.ent.${Date.now()}`

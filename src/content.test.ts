@@ -31,7 +31,7 @@ describe('content types', () => {
 
   beforeAll(async () => {
     owner = await createTestUser('ct-owner')
-    org   = await createTestOrg(owner.accountId, uniqueSlug('ct-org'))
+    org   = await createTestOrg(uniqueSlug('ct-org'))
     await addOrgMember(org.id, owner.accountId, 'owner')
   })
 
@@ -99,7 +99,7 @@ describe('contents CRUD', () => {
 
   beforeAll(async () => {
     owner = await createTestUser('content-crud-owner')
-    org   = await createTestOrg(owner.accountId, uniqueSlug('content-crud-org'))
+    org   = await createTestOrg(uniqueSlug('content-crud-org'))
     await addOrgMember(org.id, owner.accountId, 'owner')
     db = createContentDb(owner.client)
 
@@ -193,7 +193,7 @@ describe('contents CRUD', () => {
     expect(data!.slug).toBe(newSlug)
   })
 
-  it('delete removes the content row', async () => {
+  it('delete soft-deletes: content is hidden from queries but row is preserved', async () => {
     const slug = uniqueSlug('deletable')
     const { data: created } = await db.create(org.id, {
       content_type_id: contentTypeId,
@@ -204,8 +204,18 @@ describe('contents CRUD', () => {
     const { error } = await db.delete(created!.id)
     expect(error).toBeNull()
 
-    const { data } = await db.getById(created!.id)
-    expect(data).toBeNull()
+    // Soft-deleted content is invisible to normal client queries
+    const { data: afterDelete } = await db.getById(created!.id)
+    expect(afterDelete).toBeNull()
+
+    // But the row is still in the database with deleted_at set
+    const { data: raw } = await admin
+      .from('contents')
+      .select('id, deleted_at')
+      .eq('id', created!.id)
+      .single()
+    expect(raw).not.toBeNull()
+    expect(raw!.deleted_at).not.toBeNull()
   })
 })
 
@@ -222,7 +232,7 @@ describe('content status transitions', () => {
   beforeAll(async () => {
     owner  = await createTestUser('status-owner')
     member = await createTestUser('status-member')
-    org    = await createTestOrg(owner.accountId, uniqueSlug('status-org'))
+    org    = await createTestOrg(uniqueSlug('status-org'))
     await addOrgMember(org.id, owner.accountId, 'owner')
     await addOrgMember(org.id, member.accountId, 'member')
 
@@ -245,7 +255,8 @@ describe('content status transitions', () => {
       slug: uniqueSlug('to-publish'),
       title: 'To Publish',
     })
-    const { data: version } = await ownerDb.createVersion(content!.id, { title: 'v1' })
+    const { data: version, error: versionError } = await ownerDb.createVersion(content!.id, { title: 'v1' })
+    expect(versionError).toBeNull()
 
     const { data, error } = await ownerDb.publish(content!.id, version!.id)
     expect(error).toBeNull()
@@ -303,7 +314,7 @@ describe('content versions', () => {
 
   beforeAll(async () => {
     owner = await createTestUser('versions-owner')
-    org   = await createTestOrg(owner.accountId, uniqueSlug('versions-org'))
+    org   = await createTestOrg(uniqueSlug('versions-org'))
     await addOrgMember(org.id, owner.accountId, 'owner')
     db = createContentDb(owner.client)
 
@@ -375,7 +386,7 @@ describe('content blocks', () => {
 
   beforeAll(async () => {
     owner = await createTestUser('blocks-owner')
-    org   = await createTestOrg(owner.accountId, uniqueSlug('blocks-org'))
+    org   = await createTestOrg(uniqueSlug('blocks-org'))
     await addOrgMember(org.id, owner.accountId, 'owner')
     db = createContentDb(owner.client)
 
@@ -463,7 +474,7 @@ describe('content history', () => {
 
   beforeAll(async () => {
     owner = await createTestUser('history-owner')
-    org   = await createTestOrg(owner.accountId, uniqueSlug('history-org'))
+    org   = await createTestOrg(uniqueSlug('history-org'))
     await addOrgMember(org.id, owner.accountId, 'owner')
     db = createContentDb(owner.client)
 
@@ -536,7 +547,7 @@ describe('RLS — outsider cannot access org content', () => {
   beforeAll(async () => {
     owner    = await createTestUser('rls-owner')
     outsider = await createTestUser('rls-outsider')
-    org      = await createTestOrg(owner.accountId, uniqueSlug('rls-org'))
+    org      = await createTestOrg(uniqueSlug('rls-org'))
     await addOrgMember(org.id, owner.accountId, 'owner')
 
     const ownerDb = createContentDb(owner.client)

@@ -36,14 +36,8 @@ afterEach(() => {
 })
 
 describe('supabase-js CLI', () => {
-  it('exits 0 for a known template', () => {
-    const { result } = runCli(['add', 'supabase'])
+  it('exits 0', () => {
+    const { result } = runCli(['install'])
     expect(result.status).toBe(0)
-  })
-
-  it('exits 1 and writes to stderr for an unknown template', () => {
-    const { result } = runCli(['add', 'missing-template'])
-    expect(result.status).toBe(1)
-    expect(result.stderr).toContain('Unknown template')
   })
 })
