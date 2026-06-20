@@ -862,3 +862,81 @@ describe('createNotificationsDb', () => {
     })
   })
 })
+
+// ── security: notification cross-account isolation ────────────────────────────
+
+describe('security: notification cross-account isolation', () => {
+  let userA: TestUser
+  let userB: TestUser
+  let inboxIdA: number
+
+  beforeAll(async () => {
+    userA = await createTestUser('sec-notif-a')
+    userB = await createTestUser('sec-notif-b')
+
+    const { data: event } = await admin
+      .from('notification_events')
+      .insert({ type: 'test.created', entity_type: 'test', entity_id: 'sec-1', payload: {} })
+      .select('id')
+      .single()
+
+    const { data: recipient } = await admin
+      .from('notification_recipients')
+      .insert({ event_id: event!.id, account_id: userA.accountId })
+      .select('id')
+      .single()
+
+    const { data: inbox } = await admin
+      .from('notification_inbox')
+      .insert({
+        account_id: userA.accountId,
+        recipient_id: recipient!.id,
+        title: 'Security Test Notification',
+        body: 'You have a notification.',
+      })
+      .select('id')
+      .single()
+    inboxIdA = inbox!.id
+  })
+
+  afterAll(async () => {
+    if (inboxIdA) await admin.from('notification_inbox').delete().eq('id', inboxIdA)
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+  })
+
+  it('user B cannot UPDATE user A notification_inbox row directly', async () => {
+    const { error } = await userB.client
+      .from('notification_inbox')
+      .update({ read_at: new Date().toISOString() })
+      .eq('id', inboxIdA)
+    if (!error) {
+      const { data } = await admin
+        .from('notification_inbox')
+        .select('read_at')
+        .eq('id', inboxIdA)
+        .single()
+      expect(data!.read_at).toBeNull()
+    }
+  })
+
+  it('user B cannot DELETE user A notification_inbox row', async () => {
+    const { error } = await userB.client
+      .from('notification_inbox')
+      .delete()
+      .eq('id', inboxIdA)
+    if (!error) {
+      const { data } = await admin
+        .from('notification_inbox')
+        .select('id')
+        .eq('id', inboxIdA)
+      expect(data!.length).toBeGreaterThan(0)
+    }
+  })
+
+  it("user B unreadCount RPC returns their own count, not user A's", async () => {
+    const db = createNotificationsDb(userB.client)
+    const { data: countB } = await db.unreadCount()
+    expect(Number(countB)).toBe(0)
+  })
+})

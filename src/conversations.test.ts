@@ -961,3 +961,94 @@ describe('createCommentsDb — additional methods', () => {
     expect(after!.some(a => a.id === att!.id)).toBe(false)
   })
 })
+
+// ── security: conversation impersonation and self-add ─────────────────────────
+
+describe('security: conversation impersonation and self-add', () => {
+  let userA: TestUser
+  let userB: TestUser
+  let userC: TestUser
+  let convId: number
+
+  beforeAll(async () => {
+    userA = await createTestUser('sec-conv-a')
+    userB = await createTestUser('sec-conv-b')
+    userC = await createTestUser('sec-conv-c')
+
+    const { data: conv } = await admin
+      .from('conversations')
+      .insert({ tenant_id: null, type: 'group', title: 'Secure Conv' })
+      .select('id')
+      .single()
+    convId = conv!.id
+
+    await admin
+      .from('conversation_participants')
+      .insert([
+        { conversation_id: convId, account_id: userA.accountId, role: 'owner' },
+        { conversation_id: convId, account_id: userB.accountId, role: 'member' },
+      ])
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+    await deleteTestUser(userC.id)
+  })
+
+  it('non-participant (userC) cannot add themselves to the conversation', async () => {
+    const db = createCommentsDb(userC.client)
+    const { error } = await db.addParticipant({
+      conversation_id: convId,
+      account_id: userC.accountId,
+      role: 'member',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('participant (userB) cannot add a third party (userC) to the conversation', async () => {
+    const db = createCommentsDb(userB.client)
+    const { error } = await db.addParticipant({
+      conversation_id: convId,
+      account_id: userC.accountId,
+      role: 'member',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('participant (userB) cannot send a message with a forged sender_id', async () => {
+    const db = createCommentsDb(userB.client)
+    const { error } = await db.sendMessage({
+      conversation_id: convId,
+      sender_id: userA.accountId,
+      body: 'This is not from userA',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('non-participant (userC) cannot send a message into the conversation', async () => {
+    const db = createCommentsDb(userC.client)
+    const { error } = await db.sendMessage({
+      conversation_id: convId,
+      sender_id: userC.accountId,
+      body: 'Intruder message',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('non-participant (userC) cannot change userA role via updateParticipantRole', async () => {
+    const db = createCommentsDb(userC.client)
+    const { error } = await db.updateParticipantRole(convId, userA.accountId, 'member')
+    if (!error) {
+      const { data } = await admin
+        .from('conversation_participants')
+        .select('role')
+        .eq('conversation_id', convId)
+        .eq('account_id', userA.accountId)
+        .single()
+      expect(data!.role).toBe('owner')
+    } else {
+      expect(error).not.toBeNull()
+    }
+  })
+})

@@ -464,3 +464,127 @@ describe('payments — getPayment / getPaymentByProviderId / limit', () => {
     expect(data!.billing_provider_payment_id).toBe(providerPaymentId)
   })
 })
+
+// ── security: billing write isolation ─────────────────────────────────────────
+
+describe('security: members cannot insert invoices or payments', () => {
+  let member: TestUser
+  let outsider: TestUser
+  let org: TestOrg
+
+  beforeAll(async () => {
+    member = await createTestUser('sec-billing-member')
+    outsider = await createTestUser('sec-billing-outsider')
+    org = await createTestOrg(uniqueSlug('sec-billing-org'))
+    await addOrgMember(org.id, member.accountId, 'billing')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(member.id)
+    await deleteTestUser(outsider.id)
+  })
+
+  it('regular member cannot INSERT an invoice', async () => {
+    const { error } = await member.client
+      .from('invoices')
+      .insert({ organization_id: org.id, number: `INV-SEC-${Date.now()}`, status: 'draft' })
+    expect(error).not.toBeNull()
+  })
+
+  it('outsider cannot INSERT an invoice for another org', async () => {
+    const { error } = await outsider.client
+      .from('invoices')
+      .insert({ organization_id: org.id, number: `INV-SEC-OUT-${Date.now()}`, status: 'draft' })
+    expect(error).not.toBeNull()
+  })
+
+  it('regular member cannot INSERT a payment', async () => {
+    const { error } = await member.client
+      .from('payments')
+      .insert({
+        organization_id: org.id,
+        amount: 999,
+        billing_provider: 'stripe',
+        status: 'succeeded',
+      })
+    expect(error).not.toBeNull()
+  })
+
+  it('outsider cannot INSERT a credit note for another org', async () => {
+    const { error } = await outsider.client
+      .from('credit_notes')
+      .insert({ organization_id: org.id, total_amount: 100, reason: 'fraudulent', invoice_id: 1 })
+    expect(error).not.toBeNull()
+  })
+})
+
+// ── security: billing cross-org isolation ─────────────────────────────────────
+
+describe('security: org A member cannot see org B invoices or payments', () => {
+  let memberA: TestUser
+  let memberB: TestUser
+  let orgA: TestOrg
+  let orgB: TestOrg
+  let invIdB: number
+  let payIdB: number
+
+  beforeAll(async () => {
+    memberA = await createTestUser('sec-billing-cross-a')
+    memberB = await createTestUser('sec-billing-cross-b')
+    orgA = await createTestOrg(uniqueSlug('sec-billing-cross-a'))
+    orgB = await createTestOrg(uniqueSlug('sec-billing-cross-b'))
+    await addOrgMember(orgA.id, memberA.accountId, 'billing')
+    await addOrgMember(orgB.id, memberB.accountId, 'billing')
+
+    const { data: inv } = await admin
+      .from('invoices')
+      .insert({ organization_id: orgB.id, number: `INV-CROSS-${Date.now()}`, status: 'paid' })
+      .select('id')
+      .single()
+    invIdB = inv!.id
+
+    const { data: pay } = await admin
+      .from('payments')
+      .insert({
+        organization_id: orgB.id,
+        invoice_id: invIdB,
+        amount: 100,
+        billing_provider: 'stripe',
+        status: 'succeeded',
+      })
+      .select('id')
+      .single()
+    payIdB = pay!.id
+  })
+
+  afterAll(async () => {
+    if (payIdB) await admin.from('payments').delete().eq('id', payIdB)
+    if (invIdB) await admin.from('invoices').delete().eq('id', invIdB)
+    await deleteTestUser(memberA.id)
+    await deleteTestUser(memberB.id)
+  })
+
+  it('member of org A cannot getInvoice from org B', async () => {
+    const db = createBillingDb(memberA.client)
+    const { data, error } = await db.getInvoice(invIdB)
+    const found = !error && data?.id === invIdB
+    expect(found).toBe(false)
+  })
+
+  it('member of org A cannot getPayment from org B', async () => {
+    const db = createBillingDb(memberA.client)
+    const { data } = await db.getPayment(payIdB)
+    expect(data?.id ?? null).not.toBe(payIdB)
+  })
+
+  it('member of org A cannot UPDATE an invoice belonging to org B', async () => {
+    const { error } = await memberA.client
+      .from('invoices')
+      .update({ status: 'void' })
+      .eq('id', invIdB)
+    if (!error) {
+      const { data } = await admin.from('invoices').select('status').eq('id', invIdB).single()
+      expect(data!.status).not.toBe('void')
+    }
+  })
+})

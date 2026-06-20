@@ -302,6 +302,44 @@ describe('content status transitions', () => {
     const { error } = await memberDb.publish(content!.id, version!.id)
     expect(error).not.toBeNull()
   })
+
+  it('member cannot archive content', async () => {
+    const { data: content } = await ownerDb.create(org.id, {
+      content_type_id: contentTypeId,
+      slug: uniqueSlug('member-archive-attempt'),
+      title: 'Member Archive Attempt',
+    })
+
+    const { error } = await memberDb.archive(content!.id)
+    expect(error).not.toBeNull()
+  })
+
+  it('member cannot delete content', async () => {
+    const { data: content } = await ownerDb.create(org.id, {
+      content_type_id: contentTypeId,
+      slug: uniqueSlug('member-delete-attempt'),
+      title: 'Member Delete Attempt',
+    })
+
+    const { error } = await memberDb.delete(content!.id)
+    if (!error) {
+      const { data } = await admin.from('contents').select('id').eq('id', content!.id)
+      expect(data!.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('member cannot unpublish content (unpublish requires publish permission)', async () => {
+    const { data: content } = await ownerDb.create(org.id, {
+      content_type_id: contentTypeId,
+      slug: uniqueSlug('member-unpublish-attempt'),
+      title: 'Member Unpublish Attempt',
+    })
+    const { data: version } = await ownerDb.createVersion(content!.id, { title: 'v1' })
+    await ownerDb.publish(content!.id, version!.id)
+
+    const { error } = await memberDb.unpublish(content!.id)
+    expect(error).not.toBeNull()
+  })
 })
 
 // ── content versions ──────────────────────────────────────────────────────────
@@ -589,6 +627,84 @@ describe('RLS — outsider cannot access org content', () => {
       slug: uniqueSlug('rls-outsider-create'),
       title: 'Should Fail',
     })
+    expect(error).not.toBeNull()
+  })
+
+  it('outsider cannot UPDATE content from another org', async () => {
+    const { error } = await outsider.client
+      .from('contents')
+      .update({ title: 'Hijacked Title' })
+      .eq('id', contentId)
+    if (!error) {
+      const { data } = await admin.from('contents').select('title').eq('id', contentId).single()
+      expect(data!.title).not.toBe('Hijacked Title')
+    }
+  })
+
+  it('outsider cannot DELETE content from another org', async () => {
+    const { error } = await outsider.client
+      .from('contents')
+      .delete()
+      .eq('id', contentId)
+    if (!error) {
+      const { data } = await admin.from('contents').select('id').eq('id', contentId)
+      expect(data!.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('outsider cannot INSERT a content version for another org content', async () => {
+    const { error } = await outsider.client
+      .from('content_versions')
+      .insert({ content_id: contentId, title: 'Injected Version', version_number: 99 })
+    expect(error).not.toBeNull()
+  })
+})
+
+// ── security: content type creation restricted to org admins/owners ───────────
+
+describe('security: content type creation restricted to org admins/owners', () => {
+  let owner: TestUser
+  let member: TestUser
+  let outsider: TestUser
+  let org: TestOrg
+
+  beforeAll(async () => {
+    owner = await createTestUser('sec-ct-owner')
+    member = await createTestUser('sec-ct-member')
+    outsider = await createTestUser('sec-ct-outsider')
+    org = await createTestOrg(uniqueSlug('sec-ct-org'))
+    await addOrgMember(org.id, owner.accountId, 'owner')
+    await addOrgMember(org.id, member.accountId, 'member')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(owner.id)
+    await deleteTestUser(member.id)
+    await deleteTestUser(outsider.id)
+  })
+
+  it('regular member cannot create a custom content type', async () => {
+    const db = createContentDb(member.client)
+    const { error } = await db.createContentType(org.id, {
+      slug: uniqueSlug('sneaky-type'),
+      name: 'Sneaky Type',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('outsider cannot create a content type for another org', async () => {
+    const db = createContentDb(outsider.client)
+    const { error } = await db.createContentType(org.id, {
+      slug: uniqueSlug('outsider-type'),
+      name: 'Outsider Type',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('outsider cannot create a system content type (organization_id = null)', async () => {
+    const { error } = await outsider.client
+      .from('content_types')
+      .insert({ slug: uniqueSlug('sys-type'), name: 'Fake System Type', organization_id: null })
     expect(error).not.toBeNull()
   })
 })
