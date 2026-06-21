@@ -56,7 +56,7 @@ GRANT ALL ON TABLE public.permissions TO service_role;
 INSERT INTO public.permissions (key, name, description, scope) VALUES
     -- platform
     ('platform.admin',       'Platform Administrator',   'Full platform access; bypasses all org and project checks',          'platform'),
-    ('platform.support',     'Platform Support Access',  'Read-only support access across all resources',                      'platform'),
+    ('platform.support',     'Platform Support Access',  'Support access across all resources',                                'platform'),
     -- organization
     ('organization.manage',  'Manage Organization',      'Update org settings, slug, and metadata',                            'organization'),
     ('users.invite',         'Invite Users',             'Send org membership invitations',                                    'organization'),

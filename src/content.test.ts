@@ -322,10 +322,9 @@ describe('content status transitions', () => {
     })
 
     const { error } = await memberDb.delete(content!.id)
-    if (!error) {
-      const { data } = await admin.from('contents').select('id').eq('id', content!.id)
-      expect(data!.length).toBeGreaterThan(0)
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin.from('contents').select('id').eq('id', content!.id)
+    expect(data!.length).toBeGreaterThan(0)
   })
 
   it('member cannot unpublish content (unpublish requires publish permission)', async () => {
@@ -635,10 +634,9 @@ describe('RLS — outsider cannot access org content', () => {
       .from('contents')
       .update({ title: 'Hijacked Title' })
       .eq('id', contentId)
-    if (!error) {
-      const { data } = await admin.from('contents').select('title').eq('id', contentId).single()
-      expect(data!.title).not.toBe('Hijacked Title')
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin.from('contents').select('title').eq('id', contentId).single()
+    expect(data!.title).not.toBe('Hijacked Title')
   })
 
   it('outsider cannot DELETE content from another org', async () => {
@@ -646,10 +644,9 @@ describe('RLS — outsider cannot access org content', () => {
       .from('contents')
       .delete()
       .eq('id', contentId)
-    if (!error) {
-      const { data } = await admin.from('contents').select('id').eq('id', contentId)
-      expect(data!.length).toBeGreaterThan(0)
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin.from('contents').select('id').eq('id', contentId)
+    expect(data!.length).toBeGreaterThan(0)
   })
 
   it('outsider cannot INSERT a content version for another org content', async () => {

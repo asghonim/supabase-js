@@ -308,31 +308,30 @@ describe('security: ticket cross-account mutation isolation', () => {
     const ticket = await seedTicket(userA.accountId)
     const db = createTicketDb(userB.client)
     const { error } = await db.assignTo(ticket.id, userB.accountId)
-    if (!error) {
-      const { data } = await admin
-        .from('tickets')
-        .select('assigned_to_account_id')
-        .eq('id', ticket.id)
-        .single()
-      expect(data!.assigned_to_account_id).not.toBe(userB.accountId)
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('tickets')
+      .select('assigned_to_account_id')
+      .eq('id', ticket.id)
+      .single()
+    expect(data!.assigned_to_account_id).not.toBe(userB.accountId)
   })
 
   it('regular user cannot INSERT tickets on behalf of another account', async () => {
+    const uniqueMsg = `Forged ticket ${Date.now()}`
     const { error } = await userA.client
       .from('tickets')
       .insert({
         authenticated_account_id: userB.accountId,
-        message: 'Forged ticket',
+        message: uniqueMsg,
         subject: 'Impersonation',
       })
-    if (!error) {
-      const { data } = await admin
-        .from('tickets')
-        .select('authenticated_account_id')
-        .eq('message', 'Forged ticket')
-        .maybeSingle()
-      expect(data?.authenticated_account_id).not.toBe(userB.accountId)
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('tickets')
+      .select('authenticated_account_id')
+      .eq('message', uniqueMsg)
+      .maybeSingle()
+    expect(data).toBeNull()
   })
 })

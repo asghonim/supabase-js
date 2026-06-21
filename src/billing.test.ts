@@ -471,15 +471,24 @@ describe('security: members cannot insert invoices or payments', () => {
   let member: TestUser
   let outsider: TestUser
   let org: TestOrg
+  let seedInvoiceId: number
 
   beforeAll(async () => {
     member = await createTestUser('sec-billing-member')
     outsider = await createTestUser('sec-billing-outsider')
     org = await createTestOrg(uniqueSlug('sec-billing-org'))
     await addOrgMember(org.id, member.accountId, 'billing')
+
+    const { data: inv } = await admin
+      .from('invoices')
+      .insert({ organization_id: org.id, number: `INV-SEC-SEED-${Date.now()}`, status: 'draft' })
+      .select('id')
+      .single()
+    seedInvoiceId = inv!.id
   })
 
   afterAll(async () => {
+    if (seedInvoiceId) await admin.from('invoices').delete().eq('id', seedInvoiceId)
     await deleteTestUser(member.id)
     await deleteTestUser(outsider.id)
   })
@@ -513,7 +522,7 @@ describe('security: members cannot insert invoices or payments', () => {
   it('outsider cannot INSERT a credit note for another org', async () => {
     const { error } = await outsider.client
       .from('credit_notes')
-      .insert({ organization_id: org.id, total_amount: 100, reason: 'fraudulent', invoice_id: 1 })
+      .insert({ organization_id: org.id, total_amount: 100, reason: 'fraudulent', invoice_id: seedInvoiceId })
     expect(error).not.toBeNull()
   })
 })
@@ -582,9 +591,8 @@ describe('security: org A member cannot see org B invoices or payments', () => {
       .from('invoices')
       .update({ status: 'void' })
       .eq('id', invIdB)
-    if (!error) {
-      const { data } = await admin.from('invoices').select('status').eq('id', invIdB).single()
-      expect(data!.status).not.toBe('void')
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin.from('invoices').select('status').eq('id', invIdB).single()
+    expect(data!.status).not.toBe('void')
   })
 })

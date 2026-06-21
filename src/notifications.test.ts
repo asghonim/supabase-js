@@ -910,14 +910,13 @@ describe('security: notification cross-account isolation', () => {
       .from('notification_inbox')
       .update({ read_at: new Date().toISOString() })
       .eq('id', inboxIdA)
-    if (!error) {
-      const { data } = await admin
-        .from('notification_inbox')
-        .select('read_at')
-        .eq('id', inboxIdA)
-        .single()
-      expect(data!.read_at).toBeNull()
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('notification_inbox')
+      .select('read_at')
+      .eq('id', inboxIdA)
+      .single()
+    expect(data!.read_at).toBeNull()
   })
 
   it('user B cannot DELETE user A notification_inbox row', async () => {
@@ -925,13 +924,12 @@ describe('security: notification cross-account isolation', () => {
       .from('notification_inbox')
       .delete()
       .eq('id', inboxIdA)
-    if (!error) {
-      const { data } = await admin
-        .from('notification_inbox')
-        .select('id')
-        .eq('id', inboxIdA)
-      expect(data!.length).toBeGreaterThan(0)
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('notification_inbox')
+      .select('id')
+      .eq('id', inboxIdA)
+    expect(data!.length).toBeGreaterThan(0)
   })
 
   it("user B unreadCount RPC returns their own count, not user A's", async () => {

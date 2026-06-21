@@ -1039,16 +1039,13 @@ describe('security: conversation impersonation and self-add', () => {
   it('non-participant (userC) cannot change userA role via updateParticipantRole', async () => {
     const db = createCommentsDb(userC.client)
     const { error } = await db.updateParticipantRole(convId, userA.accountId, 'member')
-    if (!error) {
-      const { data } = await admin
-        .from('conversation_participants')
-        .select('role')
-        .eq('conversation_id', convId)
-        .eq('account_id', userA.accountId)
-        .single()
-      expect(data!.role).toBe('owner')
-    } else {
-      expect(error).not.toBeNull()
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('conversation_participants')
+      .select('role')
+      .eq('conversation_id', convId)
+      .eq('account_id', userA.accountId)
+      .single()
+    expect(data!.role).toBe('owner')
   })
 })

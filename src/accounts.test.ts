@@ -195,16 +195,15 @@ describe('security: users cannot mutate other accounts', () => {
       .from('account_names')
       .update({ name: 'Hacked' })
       .eq('account_id', userA.accountId)
-    if (!error) {
-      const { data } = await admin
-        .from('account_names')
-        .select('name')
-        .eq('account_id', userA.accountId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-      expect(data!.name).not.toBe('Hacked')
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('account_names')
+      .select('name')
+      .eq('account_id', userA.accountId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    expect(data!.name).not.toBe('Hacked')
   })
 
   it('user B cannot DELETE user A account_names rows', async () => {
@@ -212,27 +211,25 @@ describe('security: users cannot mutate other accounts', () => {
       .from('account_names')
       .delete()
       .eq('account_id', userA.accountId)
-    if (!error) {
-      const { data } = await admin
-        .from('account_names')
-        .select('id')
-        .eq('account_id', userA.accountId)
-      expect(data!.length).toBeGreaterThan(0)
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('account_names')
+      .select('id')
+      .eq('account_id', userA.accountId)
+    expect(data!.length).toBeGreaterThan(0)
   })
 
   it('user B cannot UPDATE the accounts table row belonging to user A', async () => {
     const { error } = await userB.client
       .from('accounts')
-      .update({ user_id: userB.id })
+      .update({ user_id: null })
       .eq('id', userA.accountId)
-    if (!error) {
-      const { data } = await admin
-        .from('accounts')
-        .select('user_id')
-        .eq('id', userA.accountId)
-        .single()
-      expect(data!.user_id).toBe(userA.id)
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('accounts')
+      .select('user_id')
+      .eq('id', userA.accountId)
+      .single()
+    expect(data!.user_id).toBe(userA.id)
   })
 })

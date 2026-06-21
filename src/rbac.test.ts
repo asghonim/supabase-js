@@ -542,16 +542,13 @@ describe('security: unprivileged user cannot revoke platform roles', () => {
   it("attacker cannot revoke the victim's platform role", async () => {
     const db = createRbacDb(attacker.client)
     const { error } = await db.revokePlatformRole(victim.accountId, auditorRoleId)
-    if (!error) {
-      const { data } = await admin
-        .from('account_platform_roles')
-        .select('id')
-        .eq('account_id', victim.accountId)
-        .eq('platform_role_id', auditorRoleId)
-      expect(data!.length).toBeGreaterThan(0)
-    } else {
-      expect(error).not.toBeNull()
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('account_platform_roles')
+      .select('id')
+      .eq('account_id', victim.accountId)
+      .eq('platform_role_id', auditorRoleId)
+    expect(data!.length).toBeGreaterThan(0)
   })
 
   it('attacker cannot DELETE from account_platform_roles directly', async () => {
@@ -559,12 +556,11 @@ describe('security: unprivileged user cannot revoke platform roles', () => {
       .from('account_platform_roles')
       .delete()
       .eq('account_id', victim.accountId)
-    if (!error) {
-      const { data } = await admin
-        .from('account_platform_roles')
-        .select('id')
-        .eq('account_id', victim.accountId)
-      expect(data!.length).toBeGreaterThan(0)
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('account_platform_roles')
+      .select('id')
+      .eq('account_id', victim.accountId)
+    expect(data!.length).toBeGreaterThan(0)
   })
 })

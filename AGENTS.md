@@ -96,3 +96,8 @@
     )
     WHERE r.key = 'member' AND r.organization_id IS NULL;
 ```
+
+## Testing Instructions
+- In negative security tests, wrapping assertions in an if (!error) block is an anti-pattern. If the deletion is correctly blocked and returns an error, the if block is skipped, and the test passes without executing any assertions. This can lead to false positives where the test passes even if the underlying behavior is incorrect or if an unrelated error occurs. Instead, explicitly assert that an error is returned (expect(error).not.toBeNull()).
+- When testing for insertions, test can produce false positives because it doesn’t read back the specific row it just attempted to insert. Prefer selecting the inserted row and asserting its properties to ensure the insertion was successful and the data is correct. For example, after inserting a new user, select that user by their unique identifier and assert that their properties match the expected values. You can then use that uuid of the inserted record to query for it using other supabase clients.
+- When asserting for errors, always assert the error message to ensure that the correct error is being thrown. This helps to avoid false positives where a different error might be thrown, leading to incorrect test results. For example, if you expect a "permission denied" error, assert that the error message contains "permission denied" to confirm that the correct error is being returned.

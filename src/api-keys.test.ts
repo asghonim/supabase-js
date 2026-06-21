@@ -320,10 +320,9 @@ describe('security: API key cross-org isolation', () => {
   it('member of org A cannot revoke an org B API key', async () => {
     const db = createApiKeysDb(ownerA.client)
     const { error } = await db.revoke(keyIdInOrgB)
-    if (!error) {
-      const { data } = await admin.from('api_keys').select('revoked_at').eq('id', keyIdInOrgB).single()
-      expect(data!.revoked_at).toBeNull()
-    }
+    expect(error).not.toBeNull()
+    const { data } = await admin.from('api_keys').select('revoked_at').eq('id', keyIdInOrgB).single()
+    expect(data!.revoked_at).toBeNull()
   })
 
   it('member of org A cannot INSERT an API key into org B', async () => {
