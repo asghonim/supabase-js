@@ -322,6 +322,18 @@ describe('edit_message / delete_message (RPC)', () => {
       .select('body')
       .eq('message_id', msg.id)
     expect(versions!.map(v => v.body)).toContain('Original body')
+
+    const { data: auditRows } = await admin
+      .from('messages_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(msg.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.body).toBe('Original body')
+    expect(auditRows![0].new_row.body).toBe('Edited body')
+    expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
   })
 
   it('a non-sender cannot edit the message', async () => {
@@ -354,6 +366,18 @@ describe('edit_message / delete_message (RPC)', () => {
       .eq('id', msg.id)
       .single()
     expect(row!.deleted_at).not.toBeNull()
+
+    const { data: auditRows } = await admin
+      .from('messages_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(msg.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.deleted_at).toBeNull()
+    expect(auditRows![0].new_row.deleted_at).not.toBeNull()
+    expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
   })
 
   it('a non-sender cannot delete the message', async () => {
@@ -502,6 +526,19 @@ describe('message_reactions RLS', () => {
       .eq('message_id', msg.id)
       .eq('account_id', userA.accountId)
     expect(data!.map(r => r.reaction)).not.toContain('🎉')
+
+    const { data: auditRows } = await admin
+      .from('message_reactions_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>message_id', String(msg.id))
+      .eq('old_row->>account_id', String(userA.accountId))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('DELETE')
+    expect(auditRows![0].old_row.reaction).toBe('🎉')
+    expect(auditRows![0].new_row).toBeNull()
+    expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
   })
 
   it('a user cannot remove another account\'s reaction', async () => {
@@ -709,6 +746,18 @@ describe('createCommentsDb', () => {
       expect(error).toBeNull()
       expect(data!.body).toBe('Edited')
       expect(data!.edited_at).not.toBeNull()
+
+      const { data: auditRows } = await admin
+        .from('messages_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(msg.data!.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.body).toBe('Original')
+      expect(auditRows![0].new_row.body).toBe('Edited')
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
   })
 
@@ -738,6 +787,18 @@ describe('createCommentsDb', () => {
 
       const visible = await userADb.getMessage(msg.data!.id)
       expect(visible.data).toBeNull()
+
+      const { data: auditRows } = await admin
+        .from('messages_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(msg.data!.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.deleted_at).toBeNull()
+      expect(auditRows![0].new_row.deleted_at).not.toBeNull()
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
   })
 
@@ -780,6 +841,19 @@ describe('createCommentsDb', () => {
 
       const { data: after } = await adminDb.listReactions(msg.data!.id)
       expect(after!.map(r => r.reaction)).not.toContain('🚀')
+
+      const { data: auditRows } = await admin
+        .from('message_reactions_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>message_id', String(msg.data!.id))
+        .eq('old_row->>account_id', String(userA.accountId))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('DELETE')
+      expect(auditRows![0].old_row.reaction).toBe('🚀')
+      expect(auditRows![0].new_row).toBeNull()
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
   })
 
@@ -959,5 +1033,93 @@ describe('createCommentsDb — additional methods', () => {
 
     const { data: after } = await adminDb.listAttachments(msg.data!.id)
     expect(after!.some(a => a.id === att!.id)).toBe(false)
+  })
+})
+
+// ── security: conversation impersonation and self-add ─────────────────────────
+
+describe('security: conversation impersonation and self-add', () => {
+  let userA: TestUser
+  let userB: TestUser
+  let userC: TestUser
+  let convId: number
+
+  beforeAll(async () => {
+    userA = await createTestUser('sec-conv-a')
+    userB = await createTestUser('sec-conv-b')
+    userC = await createTestUser('sec-conv-c')
+
+    const { data: conv } = await admin
+      .from('conversations')
+      .insert({ tenant_id: null, type: 'group', title: 'Secure Conv' })
+      .select('id')
+      .single()
+    convId = conv!.id
+
+    await admin
+      .from('conversation_participants')
+      .insert([
+        { conversation_id: convId, account_id: userA.accountId, role: 'owner' },
+        { conversation_id: convId, account_id: userB.accountId, role: 'member' },
+      ])
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+    await deleteTestUser(userC.id)
+  })
+
+  it('non-participant (userC) cannot add themselves to the conversation', async () => {
+    const db = createCommentsDb(userC.client)
+    const { error } = await db.addParticipant({
+      conversation_id: convId,
+      account_id: userC.accountId,
+      role: 'member',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('participant (userB) cannot add a third party (userC) to the conversation', async () => {
+    const db = createCommentsDb(userB.client)
+    const { error } = await db.addParticipant({
+      conversation_id: convId,
+      account_id: userC.accountId,
+      role: 'member',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('participant (userB) cannot send a message with a forged sender_id', async () => {
+    const db = createCommentsDb(userB.client)
+    const { error } = await db.sendMessage({
+      conversation_id: convId,
+      sender_id: userA.accountId,
+      body: 'This is not from userA',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('non-participant (userC) cannot send a message into the conversation', async () => {
+    const db = createCommentsDb(userC.client)
+    const { error } = await db.sendMessage({
+      conversation_id: convId,
+      sender_id: userC.accountId,
+      body: 'Intruder message',
+    })
+    expect(error).not.toBeNull()
+  })
+
+  it('non-participant (userC) cannot change userA role via updateParticipantRole', async () => {
+    const db = createCommentsDb(userC.client)
+    const { error } = await db.updateParticipantRole(convId, userA.accountId, 'member')
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('conversation_participants')
+      .select('role')
+      .eq('conversation_id', convId)
+      .eq('account_id', userA.accountId)
+      .single()
+    expect(data!.role).toBe('owner')
   })
 })

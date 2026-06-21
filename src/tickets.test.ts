@@ -185,6 +185,18 @@ describe('createTicketDb', () => {
       const { data, error } = await userADb.updateStatus(ticket.id, 'in_progress')
       expect(error).toBeNull()
       expect(data!.status).toBe('in_progress')
+
+      const { data: auditRows } = await admin
+        .from('tickets_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(ticket.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.status).toBe('new')
+      expect(auditRows![0].new_row.status).toBe('in_progress')
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
 
     it('sets resolved_at automatically when resolved', async () => {
@@ -252,6 +264,18 @@ describe('set_ticket_status (RPC)', () => {
     })
     expect(error).toBeNull()
     expect((await statusOf(ticket.id)).status).toBe('in_progress')
+
+    const { data: auditRows } = await admin
+      .from('tickets_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(ticket.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.status).toBe('new')
+    expect(auditRows![0].new_row.status).toBe('in_progress')
+    expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
   })
 
   it('assignee can change the status of a ticket assigned to them', async () => {
@@ -263,6 +287,18 @@ describe('set_ticket_status (RPC)', () => {
     })
     expect(error).toBeNull()
     expect((await statusOf(ticket.id)).status).toBe('waiting_customer')
+
+    const { data: auditRows } = await admin
+      .from('tickets_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(ticket.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.status).toBe('new')
+    expect(auditRows![0].new_row.status).toBe('waiting_customer')
+    expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
   })
 
   it('unrelated user cannot change ticket status', async () => {
@@ -285,5 +321,53 @@ describe('set_ticket_status (RPC)', () => {
     })
     expect(error).toBeNull()
     expect((await statusOf(ticket.id)).resolved_at).not.toBeNull()
+  })
+})
+
+// ── security: ticket cross-account mutation isolation ─────────────────────────
+
+describe('security: ticket cross-account mutation isolation', () => {
+  let userA: TestUser
+  let userB: TestUser
+
+  beforeAll(async () => {
+    userA = await createTestUser('sec-ticket-a')
+    userB = await createTestUser('sec-ticket-b')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+  })
+
+  it('user B cannot assignTo on user A ticket', async () => {
+    const ticket = await seedTicket(userA.accountId)
+    const db = createTicketDb(userB.client)
+    const { error } = await db.assignTo(ticket.id, userB.accountId)
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('tickets')
+      .select('assigned_to_account_id')
+      .eq('id', ticket.id)
+      .single()
+    expect(data!.assigned_to_account_id).not.toBe(userB.accountId)
+  })
+
+  it('regular user cannot INSERT tickets on behalf of another account', async () => {
+    const uniqueMsg = `Forged ticket ${Date.now()}`
+    const { error } = await userA.client
+      .from('tickets')
+      .insert({
+        authenticated_account_id: userB.accountId,
+        message: uniqueMsg,
+        subject: 'Impersonation',
+      })
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('tickets')
+      .select('authenticated_account_id')
+      .eq('message', uniqueMsg)
+      .maybeSingle()
+    expect(data).toBeNull()
   })
 })

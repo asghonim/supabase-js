@@ -96,3 +96,14 @@
     )
     WHERE r.key = 'member' AND r.organization_id IS NULL;
 ```
+- Always prefer to implement logic in SQL functions and triggers rather than application code to ensure data integrity regardless of how the database is accessed.
+- To update src/database.ts, run `npm run reset:db` to apply the migrations and then `npm run gen:db` to regenerate the types. Do not manually edit src/database.ts as it will be overwritten by the generator. If you need to make manual edits, make them in the SQL migration files and then regenerate the types.
+
+## Typescript Instructions
+
+- When creating typescript interfaces for database entities, for example `createAdminMarketplaceDb`, create explicit type annotations instead of relying on type inference like `ReturnType<typeof createAdminMarketplaceDb>`. This ensures that the types are clear and maintainable, and prevents issues with circular dependencies or changes in the underlying function signatures affecting the inferred types. It also prevents typescript compiler errors when the infered type exceeds that maximum length the compiler can serialize. 
+
+## Testing Instructions
+- In negative security tests, wrapping assertions in an if (!error) block is an anti-pattern. If the deletion is correctly blocked and returns an error, the if block is skipped, and the test passes without executing any assertions. This can lead to false positives where the test passes even if the underlying behavior is incorrect or if an unrelated error occurs. Instead, explicitly assert that an error is returned (expect(error).not.toBeNull()).
+- When testing for insertions, test can produce false positives because it doesn’t read back the specific row it just attempted to insert. Prefer selecting the inserted row and asserting its properties to ensure the insertion was successful and the data is correct. For example, after inserting a new user, select that user by their unique identifier and assert that their properties match the expected values. You can then use that uuid of the inserted record to query for it using other supabase clients.
+- When asserting for errors, always assert the error message to ensure that the correct error is being thrown. This helps to avoid false positives where a different error might be thrown, leading to incorrect test results. For example, if you expect a "permission denied" error, assert that the error message contains "permission denied" to confirm that the correct error is being returned.

@@ -374,3 +374,193 @@ describe('createRbacDb — assignPlatformRole / revokePlatformRole', () => {
     expect(data).toHaveLength(0)
   })
 })
+
+// ── security: self-escalation (platform roles) ────────────────────────────────
+
+describe('security: user cannot grant themselves a platform role', () => {
+  let user: TestUser
+  let platformRoleId: number
+
+  beforeAll(async () => {
+    user = await createTestUser('sec-self-plat-user')
+    const { data: role } = await admin
+      .from('platform_roles')
+      .select('id')
+      .eq('key', 'super_admin')
+      .single()
+    platformRoleId = role!.id
+  })
+
+  afterAll(async () => {
+    await admin
+      .from('account_platform_roles')
+      .delete()
+      .eq('account_id', user.accountId)
+    await deleteTestUser(user.id)
+  })
+
+  it('direct INSERT into account_platform_roles is blocked by RLS', async () => {
+    const { error } = await user.client
+      .from('account_platform_roles')
+      .insert({ account_id: user.accountId, platform_role_id: platformRoleId })
+    expect(error).not.toBeNull()
+  })
+
+  it('direct INSERT for another account is also blocked', async () => {
+    const target = await createTestUser('sec-self-plat-target')
+    try {
+      const { error } = await user.client
+        .from('account_platform_roles')
+        .insert({ account_id: target.accountId, platform_role_id: platformRoleId })
+      expect(error).not.toBeNull()
+    } finally {
+      await deleteTestUser(target.id)
+    }
+  })
+
+  it('unprivileged user calling assignPlatformRole via createRbacDb is blocked', async () => {
+    const db = createRbacDb(user.client)
+    const { error } = await db.assignPlatformRole(user.accountId, platformRoleId, user.accountId)
+    expect(error).not.toBeNull()
+  })
+})
+
+// ── security: self-escalation (org membership roles) ─────────────────────────
+
+describe('security: member cannot change org membership roles', () => {
+  let owner: TestUser
+  let member: TestUser
+  let org: TestOrg
+  let memberRowId: number
+  let ownerRoleId: number
+
+  beforeAll(async () => {
+    owner = await createTestUser('sec-member-role-owner')
+    member = await createTestUser('sec-member-role-member')
+    org = await createTestOrg(uniqueSlug('sec-member-role'))
+    await addOrgMember(org.id, owner.accountId, 'owner')
+    await addOrgMember(org.id, member.accountId, 'member')
+
+    const { data: row } = await admin
+      .from('organization_members')
+      .select('id')
+      .eq('organization_id', org.id)
+      .eq('account_id', member.accountId)
+      .single()
+    memberRowId = row!.id
+
+    const { data: role } = await admin
+      .from('organization_roles')
+      .select('id')
+      .eq('key', 'owner')
+      .is('organization_id', null)
+      .single()
+    ownerRoleId = role!.id
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(owner.id)
+    await deleteTestUser(member.id)
+  })
+
+  it('member cannot UPDATE their own org role to owner via direct table access', async () => {
+    const { error } = await member.client
+      .from('organization_members')
+      .update({ organization_role_id: ownerRoleId })
+      .eq('id', memberRowId)
+    expect(error).not.toBeNull()
+  })
+
+  it('member cannot DELETE another member from the org', async () => {
+    const { data: ownerRow } = await admin
+      .from('organization_members')
+      .select('id')
+      .eq('organization_id', org.id)
+      .eq('account_id', owner.accountId)
+      .single()
+
+    const { error } = await member.client
+      .from('organization_members')
+      .delete()
+      .eq('id', ownerRow!.id)
+    expect(error).not.toBeNull()
+  })
+
+  it('outsider cannot INSERT themselves into an org they were not invited to', async () => {
+    const outsider = await createTestUser('sec-member-role-outsider')
+    try {
+      const { data: memberRole } = await admin
+        .from('organization_roles')
+        .select('id')
+        .eq('key', 'owner')
+        .is('organization_id', null)
+        .single()
+
+      const { error } = await outsider.client
+        .from('organization_members')
+        .insert({
+          organization_id: org.id,
+          account_id: outsider.accountId,
+          organization_role_id: memberRole!.id,
+        })
+      expect(error).not.toBeNull()
+    } finally {
+      await deleteTestUser(outsider.id)
+    }
+  })
+})
+
+// ── security: unprivileged user cannot revoke platform roles ──────────────────
+
+describe('security: unprivileged user cannot revoke platform roles', () => {
+  let attacker: TestUser
+  let victim: TestUser
+  let auditorRoleId: number
+
+  beforeAll(async () => {
+    attacker = await createTestUser('sec-rbac-attacker')
+    victim = await createTestUser('sec-rbac-victim')
+    await grantPlatformRole(victim.accountId, 'auditor')
+
+    const { data: role } = await admin
+      .from('platform_roles')
+      .select('id')
+      .eq('key', 'auditor')
+      .single()
+    auditorRoleId = role!.id
+  })
+
+  afterAll(async () => {
+    await admin
+      .from('account_platform_roles')
+      .delete()
+      .eq('account_id', victim.accountId)
+    await deleteTestUser(attacker.id)
+    await deleteTestUser(victim.id)
+  })
+
+  it("attacker cannot revoke the victim's platform role", async () => {
+    const db = createRbacDb(attacker.client)
+    const { error } = await db.revokePlatformRole(victim.accountId, auditorRoleId)
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('account_platform_roles')
+      .select('account_id')
+      .eq('account_id', victim.accountId)
+      .eq('platform_role_id', auditorRoleId)
+    expect(data!.length).toBeGreaterThan(0)
+  })
+
+  it('attacker cannot DELETE from account_platform_roles directly', async () => {
+    const { error } = await attacker.client
+      .from('account_platform_roles')
+      .delete()
+      .eq('account_id', victim.accountId)
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('account_platform_roles')
+      .select('account_id')
+      .eq('account_id', victim.accountId)
+    expect(data!.length).toBeGreaterThan(0)
+  })
+})

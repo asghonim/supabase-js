@@ -702,3 +702,25 @@ CREATE OR REPLACE FUNCTION public.wallet_create(
 
 REVOKE EXECUTE ON FUNCTION public.wallet_create(public.wallet_owner_type, BIGINT, CHAR, TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.wallet_create(public.wallet_owner_type, BIGINT, CHAR, TEXT) TO service_role;
+
+
+-- ================================================================
+-- wallet_holds  →  release_wallet_hold (UPDATE)
+-- ================================================================
+
+CREATE TABLE public.wallet_holds_audit (
+    id                      BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    operation               TEXT        NOT NULL CHECK (operation IN ('UPDATE', 'DELETE')),
+    old_row                 JSONB,
+    new_row                 JSONB,
+    performed_by_account_id BIGINT      REFERENCES public.accounts(id) ON DELETE SET NULL,
+    performed_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_wallet_holds_audit_source  ON public.wallet_holds_audit ((old_row->>'id'));
+CREATE INDEX idx_wallet_holds_audit_account ON public.wallet_holds_audit (performed_by_account_id);
+ALTER TABLE public.wallet_holds_audit ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.wallet_holds_audit TO service_role;
+
+CREATE TRIGGER trg_wallet_holds_audit
+    AFTER UPDATE ON public.wallet_holds
+    FOR EACH ROW EXECUTE FUNCTION private.audit_row_changes();

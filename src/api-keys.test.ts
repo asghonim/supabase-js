@@ -240,6 +240,18 @@ describe('revoke_api_key (RPC)', () => {
       .eq('id', key.id)
       .single()
     expect(data!.revoked_at).not.toBeNull()
+
+    const { data: auditRows } = await admin
+      .from('api_keys_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(key.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.revoked_at).toBeNull()
+    expect(auditRows![0].new_row.revoked_at).not.toBeNull()
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 
   it('org member without apikey.create cannot revoke a key', async () => {
@@ -262,5 +274,81 @@ describe('revoke_api_key (RPC)', () => {
 
     const { error } = await owner.client.rpc('revoke_api_key', { p_api_key_id: key.id })
     expect(error).toBeNull()
+  })
+})
+
+// ── security: API key cross-org isolation ─────────────────────────────────────
+
+describe('security: API key cross-org isolation', () => {
+  let ownerA: TestUser
+  let ownerB: TestUser
+  let orgA: TestOrg
+  let orgB: TestOrg
+  let keyIdInOrgB: number
+
+  beforeAll(async () => {
+    ownerA = await createTestUser('sec-apikey-owner-a')
+    ownerB = await createTestUser('sec-apikey-owner-b')
+    orgA = await createTestOrg(uniqueSlug('sec-apikey-org-a'))
+    orgB = await createTestOrg(uniqueSlug('sec-apikey-org-b'))
+    await addOrgMember(orgA.id, ownerA.accountId, 'owner')
+    await addOrgMember(orgB.id, ownerB.accountId, 'owner')
+
+    const { data: key } = await admin
+      .from('api_keys')
+      .insert({
+        org_id: orgB.id,
+        account_id: ownerB.accountId,
+        name: 'OrgB Key',
+        key_prefix: `sk_live_orgb${Date.now()}`,
+        key_hash: `hash_orgb_${Date.now()}`,
+        scopes: ['read'],
+        expires_at: new Date(Date.now() + 86400_000 * 365).toISOString(),
+      })
+      .select('id')
+      .single()
+    keyIdInOrgB = key!.id
+  })
+
+  afterAll(async () => {
+    if (keyIdInOrgB) await admin.from('api_keys').delete().eq('id', keyIdInOrgB)
+    await deleteTestUser(ownerA.id)
+    await deleteTestUser(ownerB.id)
+  })
+
+  it('member of org A cannot list org B API keys', async () => {
+    const db = createApiKeysDb(ownerA.client)
+    const { data, error } = await db.listByOrg(orgB.id)
+    expect(error).toBeNull()
+    expect(data).toHaveLength(0)
+  })
+
+  it('member of org A cannot read an org B API key by id', async () => {
+    const db = createApiKeysDb(ownerA.client)
+    const { data } = await db.getById(keyIdInOrgB)
+    expect(data).toBeNull()
+  })
+
+  it('member of org A cannot revoke an org B API key', async () => {
+    const db = createApiKeysDb(ownerA.client)
+    const { error } = await db.revoke(keyIdInOrgB)
+    expect(error).not.toBeNull()
+    const { data } = await admin.from('api_keys').select('revoked_at').eq('id', keyIdInOrgB).single()
+    expect(data!.revoked_at).toBeNull()
+  })
+
+  it('member of org A cannot INSERT an API key into org B', async () => {
+    const { error } = await ownerA.client
+      .from('api_keys')
+      .insert({
+        org_id: orgB.id,
+        account_id: ownerA.accountId,
+        name: 'Stolen Key',
+        key_prefix: 'sk_live_stolen',
+        key_hash: 'stolen_hash',
+        scopes: ['read'],
+        expires_at: new Date(Date.now() + 86400_000).toISOString(),
+      })
+    expect(error).not.toBeNull()
   })
 })

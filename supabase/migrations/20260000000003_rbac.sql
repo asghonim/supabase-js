@@ -56,7 +56,7 @@ GRANT ALL ON TABLE public.permissions TO service_role;
 INSERT INTO public.permissions (key, name, description, scope) VALUES
     -- platform
     ('platform.admin',       'Platform Administrator',   'Full platform access; bypasses all org and project checks',          'platform'),
-    ('platform.support',     'Platform Support Access',  'Read-only support access across all resources',                      'platform'),
+    ('platform.support',     'Platform Support Access',  'Support access across all resources',                                'platform'),
     -- organization
     ('organization.manage',  'Manage Organization',      'Update org settings, slug, and metadata',                            'organization'),
     ('users.invite',         'Invite Users',             'Send org membership invitations',                                    'organization'),
@@ -787,5 +787,44 @@ CREATE OR REPLACE FUNCTION public.has_permission(
     ) RETURNS BOOLEAN AS $$
         SELECT private.has_permission(auth.uid(), p_action, p_resource_type, p_resource_id, p_organization_id);
     $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public, private;
+
+
+-- ================================================================
+-- GENERIC AUDIT TRIGGER FUNCTION
+--
+-- A single SECURITY DEFINER trigger function shared by all audit
+-- triggers. Routes each event to the correct <table>_audit table
+-- via TG_TABLE_NAME, avoiding per-table boilerplate.
+-- ================================================================
+
+CREATE OR REPLACE FUNCTION private.audit_row_changes()
+    RETURNS TRIGGER AS $$
+    DECLARE
+        v_account_id BIGINT;
+    BEGIN
+        SELECT id INTO v_account_id
+        FROM   public.accounts
+        WHERE  user_id = auth.uid()
+        LIMIT  1;
+
+        IF TG_OP = 'DELETE' THEN
+            EXECUTE format(
+                'INSERT INTO public.%I
+                    (operation, old_row, new_row, performed_by_account_id)
+                 VALUES ($1, $2, $3, $4)',
+                TG_TABLE_NAME || '_audit'
+            ) USING 'DELETE', to_jsonb(OLD), NULL::jsonb, v_account_id;
+            RETURN OLD;
+        ELSE
+            EXECUTE format(
+                'INSERT INTO public.%I
+                    (operation, old_row, new_row, performed_by_account_id)
+                 VALUES ($1, $2, $3, $4)',
+                TG_TABLE_NAME || '_audit'
+            ) USING 'UPDATE', to_jsonb(OLD), to_jsonb(NEW), v_account_id;
+            RETURN NEW;
+        END IF;
+    END;
+    $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private, auth;
 
 GRANT EXECUTE ON FUNCTION public.has_permission(TEXT, TEXT, BIGINT, BIGINT) TO authenticated;

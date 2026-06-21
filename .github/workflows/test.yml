@@ -18,7 +18,7 @@ jobs:
       # This ensures jobs run one by one instead of in parallel
       max-parallel: 1
       matrix:
-        node-version: [22.x, 24.x]
+        node-version: [22.x]
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}

@@ -359,3 +359,27 @@ CREATE OR REPLACE FUNCTION public.unread_notification_count()
         AND  ni.is_read = FALSE
         AND  ni.archived_at IS NULL;
     $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
+
+
+-- ================================================================
+-- notification_inbox  →  mark_notification_read,
+--                         mark_all_notifications_read,
+--                         archive_notification  (UPDATE)
+-- ================================================================
+
+CREATE TABLE public.notification_inbox_audit (
+    id                      BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    operation               TEXT        NOT NULL CHECK (operation IN ('UPDATE', 'DELETE')),
+    old_row                 JSONB,
+    new_row                 JSONB,
+    performed_by_account_id BIGINT      REFERENCES public.accounts(id) ON DELETE SET NULL,
+    performed_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_notification_inbox_audit_source  ON public.notification_inbox_audit ((old_row->>'id'));
+CREATE INDEX idx_notification_inbox_audit_account ON public.notification_inbox_audit (performed_by_account_id);
+ALTER TABLE public.notification_inbox_audit ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.notification_inbox_audit TO service_role;
+
+CREATE TRIGGER trg_notification_inbox_audit
+    AFTER UPDATE ON public.notification_inbox
+    FOR EACH ROW EXECUTE FUNCTION private.audit_row_changes();

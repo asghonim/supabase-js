@@ -421,6 +421,18 @@ describe('release_wallet_hold (RPC)', () => {
       .single()
     expect(data!.status).toBe('released')
     expect(data!.released_at).not.toBeNull()
+
+    const { data: auditRows } = await admin
+      .from('wallet_holds_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(hold!.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.status).toBe('active')
+    expect(auditRows![0].new_row.status).toBe('released')
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 
   it('non-owner cannot release the hold', async () => {
@@ -613,5 +625,76 @@ describe('createAdminWalletsDb — getWalletByOwner / listLedgerAccounts / listJ
     const { data, error } = await adminDb.listHolds(walletId, { limit: 1 })
     expect(error).toBeNull()
     expect(data!.length).toBeLessThanOrEqual(1)
+  })
+})
+
+// ── security: wallet cross-user isolation ─────────────────────────────────────
+
+describe('security: wallet cross-user isolation', () => {
+  let userA: TestUser
+  let userB: TestUser
+  let walletIdA: number
+
+  beforeAll(async () => {
+    userA = await createTestUser('sec-wallet-user-a')
+    userB = await createTestUser('sec-wallet-user-b')
+
+    const adminWalletsDb = createAdminWalletsDb(admin)
+    const { data: wallet } = await adminWalletsDb.createWallet('account', userA.accountId, 'USD')
+    walletIdA = wallet!.id
+
+    const { data: bank } = await admin
+      .from('ledger_accounts')
+      .select('id')
+      .eq('name', 'Bank (USD)')
+      .single()
+    await adminWalletsDb.deposit(walletIdA, 50, bank!.id, 'seed for isolation test')
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+  })
+
+  it('user B cannot read user A wallet by id', async () => {
+    const db = createWalletsDb(userB.client)
+    const { data, error } = await db.getWallet(walletIdA)
+    expect(error).toBeNull()
+    expect(data).toBeNull()
+  })
+
+  it('user B cannot list journal lines for user A wallet', async () => {
+    const db = createWalletsDb(userB.client)
+    const { data, error } = await db.listJournalLines(walletIdA)
+    expect(error).toBeNull()
+    expect(data).toHaveLength(0)
+  })
+
+  it('user B cannot list active holds on user A wallet', async () => {
+    const adminWalletsDb = createAdminWalletsDb(admin)
+    const { data: hold } = await adminWalletsDb.createHold(walletIdA, 10, 'test hold for isolation')
+
+    try {
+      const db = createWalletsDb(userB.client)
+      const { data, error } = await db.listActiveHolds(walletIdA)
+      expect(error).toBeNull()
+      expect(data!.some(h => h.id === hold!.id)).toBe(false)
+    } finally {
+      await adminWalletsDb.updateHoldStatus(hold!.id, 'released')
+    }
+  })
+
+  it('user B cannot directly INSERT into wallet_holds for user A wallet', async () => {
+    const { error } = await userB.client
+      .from('wallet_holds')
+      .insert({ wallet_id: walletIdA, amount: 100 })
+    expect(error).not.toBeNull()
+  })
+
+  it('user B cannot directly INSERT journal entries for user A wallet', async () => {
+    const { error } = await userB.client
+      .from('journal_entries')
+      .insert({ description: 'fake entry' })
+    expect(error).not.toBeNull()
   })
 })

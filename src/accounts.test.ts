@@ -169,3 +169,67 @@ describe('account_names and account_avatars RLS', () => {
     })
   })
 })
+
+// ── security: account mutation isolation ─────────────────────────────────────
+
+describe('security: users cannot mutate other accounts', () => {
+  let userA: TestUser
+  let userB: TestUser
+
+  beforeAll(async () => {
+    userA = await createTestUser('sec-acct-a')
+    userB = await createTestUser('sec-acct-b')
+
+    await admin
+      .from('account_names')
+      .insert({ account_id: userA.accountId, name: 'Alice', created_at: new Date().toISOString() })
+  })
+
+  afterAll(async () => {
+    await deleteTestUser(userA.id)
+    await deleteTestUser(userB.id)
+  })
+
+  it('user B cannot UPDATE user A account_names row', async () => {
+    const { error } = await userB.client
+      .from('account_names')
+      .update({ name: 'Hacked' })
+      .eq('account_id', userA.accountId)
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('account_names')
+      .select('name')
+      .eq('account_id', userA.accountId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    expect(data!.name).not.toBe('Hacked')
+  })
+
+  it('user B cannot DELETE user A account_names rows', async () => {
+    const { error } = await userB.client
+      .from('account_names')
+      .delete()
+      .eq('account_id', userA.accountId)
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('account_names')
+      .select('id')
+      .eq('account_id', userA.accountId)
+    expect(data!.length).toBeGreaterThan(0)
+  })
+
+  it('user B cannot UPDATE the accounts table row belonging to user A', async () => {
+    const { error } = await userB.client
+      .from('accounts')
+      .update({ user_id: null })
+      .eq('id', userA.accountId)
+    expect(error).not.toBeNull()
+    const { data } = await admin
+      .from('accounts')
+      .select('user_id')
+      .eq('id', userA.accountId)
+      .single()
+    expect(data!.user_id).toBe(userA.id)
+  })
+})

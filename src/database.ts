@@ -390,6 +390,41 @@ export type Database = {
           },
         ]
       }
+      api_keys_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_scopes: {
         Row: {
           created_at: string
@@ -504,6 +539,41 @@ export type Database = {
           },
         ]
       }
+      categories_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_blocks: {
         Row: {
           block_order: number
@@ -542,6 +612,41 @@ export type Database = {
           },
         ]
       }
+      content_blocks_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_blocks_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_categories: {
         Row: {
           category_id: number
@@ -574,6 +679,41 @@ export type Database = {
             columns: ["content_id"]
             isOneToOne: false
             referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_categories_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_categories_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -662,6 +802,41 @@ export type Database = {
           },
         ]
       }
+      content_media_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_media_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_snippets: {
         Row: {
           created_at: string
@@ -693,6 +868,41 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_snippets_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_snippets_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -729,6 +939,41 @@ export type Database = {
             columns: ["tag_id"]
             isOneToOne: false
             referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_tags_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_tags_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -777,6 +1022,41 @@ export type Database = {
           },
         ]
       }
+      content_translations_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_translations_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_types: {
         Row: {
           created_at: string
@@ -811,6 +1091,41 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_types_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_types_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -946,6 +1261,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "content_versions"
             referencedColumns: ["content_id", "id"]
+          },
+        ]
+      }
+      contents_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contents_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1665,6 +2015,41 @@ export type Database = {
           },
         ]
       }
+      media_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_folders: {
         Row: {
           created_at: string
@@ -1703,6 +2088,41 @@ export type Database = {
             columns: ["parent_folder_id"]
             isOneToOne: false
             referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_folders_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_folders_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -1786,6 +2206,41 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -1877,6 +2332,41 @@ export type Database = {
           {
             foreignKeyName: "messages_sender_id_fkey"
             columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
@@ -2096,6 +2586,41 @@ export type Database = {
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "notification_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_inbox_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_inbox_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -2955,6 +3480,41 @@ export type Database = {
           },
         ]
       }
+      seo_metadata_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_metadata_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_addons: {
         Row: {
           addon_version_id: number
@@ -3424,6 +3984,41 @@ export type Database = {
           },
         ]
       }
+      tags_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           assigned_to_account_id: number | null
@@ -3511,6 +4106,41 @@ export type Database = {
           {
             foreignKeyName: "tickets_authenticated_account_id_fkey"
             columns: ["authenticated_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["id"]
@@ -3700,6 +4330,41 @@ export type Database = {
             columns: ["wallet_id"]
             isOneToOne: false
             referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_holds_audit: {
+        Row: {
+          id: number
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          performed_at: string
+          performed_by_account_id: number | null
+        }
+        Insert: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Update: {
+          id?: never
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          performed_at?: string
+          performed_by_account_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_holds_audit_performed_by_account_id_fkey"
+            columns: ["performed_by_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
         ]

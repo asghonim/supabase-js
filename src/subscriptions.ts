@@ -1,12 +1,49 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient, PostgrestSingleResponse, PostgrestResponse } from '@supabase/supabase-js'
 import type { Database } from './database'
 
-type ChangeRequestInsert =
-  Database['public']['Tables']['subscription_change_requests']['Insert']
+type Tables = Database['public']['Tables']
+type SubscriptionRow = Tables['subscriptions']['Row']
+type PlanVersionRow = Tables['plan_versions']['Row']
+type PlanRow = Tables['plans']['Row']
+type OrgBillingEmailRow = Tables['organization_billing_emails']['Row']
+type SubAddonRow = Tables['subscription_addons']['Row']
+type AddonVersionRow = Tables['addon_versions']['Row']
+type AddonRow = Tables['addons']['Row']
+type ChangeRequestRow = Tables['subscription_change_requests']['Row']
+type SubEventRow = Tables['subscription_events']['Row']
+type ContractRow = Tables['subscription_contracts']['Row']
+
+type ChangeRequestInsert = Tables['subscription_change_requests']['Insert']
 type SubscriptionStatus = Database['public']['Enums']['subscription_status']
 type ChangeRequestStatus = Database['public']['Enums']['change_request_status']
 
-export function createSubscriptionsDb(supabase: SupabaseClient<Database>) {
+type SubscriptionWithPlan = SubscriptionRow & {
+  plan_versions: (PlanVersionRow & { plans: PlanRow | null }) | null
+}
+type SubscriptionWithPlanVersion = SubscriptionRow & { plan_versions: PlanVersionRow | null }
+type SubAddonWithDetails = SubAddonRow & {
+  addon_versions: (AddonVersionRow & { addons: AddonRow | null }) | null
+}
+
+export interface SubscriptionsDb {
+  createOrganizationBillingEmail(orgId: number, billingEmail: string): PromiseLike<PostgrestSingleResponse<OrgBillingEmailRow>>
+  getById(id: number): PromiseLike<PostgrestSingleResponse<SubscriptionWithPlan>>
+  getActiveForOrg(orgId: number): PromiseLike<PostgrestSingleResponse<SubscriptionWithPlan>>
+  listForOrg(orgId: number): PromiseLike<PostgrestResponse<SubscriptionWithPlan>>
+  getByProviderSubscriptionId(providerSubscriptionId: string): PromiseLike<PostgrestSingleResponse<SubscriptionWithPlanVersion>>
+  listAddons(subscriptionId: number): PromiseLike<PostgrestResponse<SubAddonWithDetails>>
+  getActiveAddons(subscriptionId: number): PromiseLike<PostgrestResponse<SubAddonWithDetails>>
+  createChangeRequest(data: ChangeRequestInsert): PromiseLike<PostgrestSingleResponse<ChangeRequestRow>>
+  getChangeRequest(id: number): PromiseLike<PostgrestSingleResponse<ChangeRequestRow>>
+  getChangeRequestByIdempotencyKey(key: string): PromiseLike<PostgrestSingleResponse<ChangeRequestRow>>
+  listChangeRequests(subscriptionId: number, options?: { status?: ChangeRequestStatus }): PromiseLike<PostgrestResponse<ChangeRequestRow>>
+  listOrgChangeRequests(orgId: number, options?: { status?: ChangeRequestStatus }): PromiseLike<PostgrestResponse<ChangeRequestRow>>
+  listEvents(orgId: number, options?: { subscriptionId?: number; limit?: number }): PromiseLike<PostgrestResponse<SubEventRow>>
+  listContracts(orgId: number): PromiseLike<PostgrestResponse<ContractRow>>
+  getContract(id: number): PromiseLike<PostgrestSingleResponse<ContractRow>>
+}
+
+export function createSubscriptionsDb(supabase: SupabaseClient<Database>): SubscriptionsDb {
   return {
     // ── Billing emails ───────────────────────────────────────────────
 
@@ -180,4 +217,3 @@ export function createSubscriptionsDb(supabase: SupabaseClient<Database>) {
   }
 }
 
-export type SubscriptionsDb = ReturnType<typeof createSubscriptionsDb>
