@@ -322,6 +322,18 @@ describe('edit_message / delete_message (RPC)', () => {
       .select('body')
       .eq('message_id', msg.id)
     expect(versions!.map(v => v.body)).toContain('Original body')
+
+    const { data: auditRows } = await admin
+      .from('messages_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(msg.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.body).toBe('Original body')
+    expect(auditRows![0].new_row.body).toBe('Edited body')
+    expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
   })
 
   it('a non-sender cannot edit the message', async () => {
@@ -354,6 +366,18 @@ describe('edit_message / delete_message (RPC)', () => {
       .eq('id', msg.id)
       .single()
     expect(row!.deleted_at).not.toBeNull()
+
+    const { data: auditRows } = await admin
+      .from('messages_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(msg.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.deleted_at).toBeNull()
+    expect(auditRows![0].new_row.deleted_at).not.toBeNull()
+    expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
   })
 
   it('a non-sender cannot delete the message', async () => {
@@ -502,6 +526,19 @@ describe('message_reactions RLS', () => {
       .eq('message_id', msg.id)
       .eq('account_id', userA.accountId)
     expect(data!.map(r => r.reaction)).not.toContain('🎉')
+
+    const { data: auditRows } = await admin
+      .from('message_reactions_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>message_id', String(msg.id))
+      .eq('old_row->>account_id', String(userA.accountId))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('DELETE')
+    expect(auditRows![0].old_row.reaction).toBe('🎉')
+    expect(auditRows![0].new_row).toBeNull()
+    expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
   })
 
   it('a user cannot remove another account\'s reaction', async () => {
@@ -709,6 +746,18 @@ describe('createCommentsDb', () => {
       expect(error).toBeNull()
       expect(data!.body).toBe('Edited')
       expect(data!.edited_at).not.toBeNull()
+
+      const { data: auditRows } = await admin
+        .from('messages_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(msg.data!.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.body).toBe('Original')
+      expect(auditRows![0].new_row.body).toBe('Edited')
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
   })
 
@@ -738,6 +787,18 @@ describe('createCommentsDb', () => {
 
       const visible = await userADb.getMessage(msg.data!.id)
       expect(visible.data).toBeNull()
+
+      const { data: auditRows } = await admin
+        .from('messages_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(msg.data!.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.deleted_at).toBeNull()
+      expect(auditRows![0].new_row.deleted_at).not.toBeNull()
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
   })
 
@@ -780,6 +841,19 @@ describe('createCommentsDb', () => {
 
       const { data: after } = await adminDb.listReactions(msg.data!.id)
       expect(after!.map(r => r.reaction)).not.toContain('🚀')
+
+      const { data: auditRows } = await admin
+        .from('message_reactions_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>message_id', String(msg.data!.id))
+        .eq('old_row->>account_id', String(userA.accountId))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('DELETE')
+      expect(auditRows![0].old_row.reaction).toBe('🚀')
+      expect(auditRows![0].new_row).toBeNull()
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
   })
 

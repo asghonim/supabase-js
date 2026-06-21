@@ -191,6 +191,18 @@ describe('contents CRUD', () => {
     expect(error).toBeNull()
     expect(data!.title).toBe('Updated Title')
     expect(data!.slug).toBe(newSlug)
+
+    const { data: auditRows } = await admin
+      .from('contents_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(created!.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.title).toBe('Original Title')
+    expect(auditRows![0].new_row.title).toBe('Updated Title')
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 
   it('delete soft-deletes: content is hidden from queries but row is preserved', async () => {
@@ -216,6 +228,18 @@ describe('contents CRUD', () => {
       .single()
     expect(raw).not.toBeNull()
     expect(raw!.deleted_at).not.toBeNull()
+
+    const { data: auditRows } = await admin
+      .from('contents_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(created!.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.deleted_at).toBeNull()
+    expect(auditRows![0].new_row.deleted_at).not.toBeNull()
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 })
 
@@ -262,6 +286,18 @@ describe('content status transitions', () => {
     expect(error).toBeNull()
     expect(data!.status).toBe('published')
     expect(data!.published_version_id).toBe(version!.id)
+
+    const { data: auditRows } = await admin
+      .from('contents_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(content!.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.status).toBe('draft')
+    expect(auditRows![0].new_row.status).toBe('published')
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 
   it('owner can unpublish a content item', async () => {
@@ -277,6 +313,18 @@ describe('content status transitions', () => {
     expect(error).toBeNull()
     expect(data!.status).toBe('draft')
     expect(data!.published_version_id).toBeNull()
+
+    const { data: auditRows } = await admin
+      .from('contents_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(content!.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.status).toBe('published')
+    expect(auditRows![0].new_row.status).toBe('draft')
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 
   it('owner can archive a content item', async () => {
@@ -289,6 +337,18 @@ describe('content status transitions', () => {
     const { data, error } = await ownerDb.archive(content!.id)
     expect(error).toBeNull()
     expect(data!.status).toBe('archived')
+
+    const { data: auditRows } = await admin
+      .from('contents_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(content!.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.status).toBe('draft')
+    expect(auditRows![0].new_row.status).toBe('archived')
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 
   it('member cannot publish (missing content.publish permission)', async () => {
@@ -485,6 +545,15 @@ describe('content blocks', () => {
     const { data } = await db.listBlocks(versionId)
     expect(data).toHaveLength(1)
     expect(data![0].block_order).toBe(1)
+
+    const { data: auditRows } = await admin
+      .from('content_blocks_audit')
+      .select('operation, old_row, performed_by_account_id')
+      .eq('old_row->>content_version_id', String(versionId))
+      .eq('operation', 'DELETE')
+      .order('performed_at', { ascending: false })
+    expect(auditRows!.length).toBeGreaterThanOrEqual(2)
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 
   it('replaceBlocks with empty array removes all blocks', async () => {

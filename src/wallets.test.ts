@@ -421,6 +421,18 @@ describe('release_wallet_hold (RPC)', () => {
       .single()
     expect(data!.status).toBe('released')
     expect(data!.released_at).not.toBeNull()
+
+    const { data: auditRows } = await admin
+      .from('wallet_holds_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(hold!.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.status).toBe('active')
+    expect(auditRows![0].new_row.status).toBe('released')
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 
   it('non-owner cannot release the hold', async () => {

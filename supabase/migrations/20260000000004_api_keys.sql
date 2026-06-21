@@ -86,3 +86,25 @@ CREATE OR REPLACE FUNCTION public.revoke_api_key(p_api_key_id BIGINT) RETURNS vo
 	$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
 REVOKE ALL ON FUNCTION public.revoke_api_key(BIGINT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.revoke_api_key(BIGINT) TO authenticated;
+
+
+-- ================================================================
+-- api_keys  →  revoke_api_key (UPDATE)
+-- ================================================================
+
+CREATE TABLE public.api_keys_audit (
+    id                      BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    operation               TEXT        NOT NULL CHECK (operation IN ('UPDATE', 'DELETE')),
+    old_row                 JSONB,
+    new_row                 JSONB,
+    performed_by_account_id BIGINT      REFERENCES public.accounts(id) ON DELETE SET NULL,
+    performed_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_api_keys_audit_source  ON public.api_keys_audit ((old_row->>'id'));
+CREATE INDEX idx_api_keys_audit_account ON public.api_keys_audit (performed_by_account_id);
+ALTER TABLE public.api_keys_audit ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.api_keys_audit TO service_role;
+
+CREATE TRIGGER trg_api_keys_audit
+    AFTER UPDATE ON public.api_keys
+    FOR EACH ROW EXECUTE FUNCTION private.audit_row_changes();

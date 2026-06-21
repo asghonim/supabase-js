@@ -5,6 +5,7 @@ export default defineConfig(({ mode }) => ({
     test: {
         // mode defines what ".env.{mode}" file to choose if exists
         env: loadEnv(mode, process.cwd(), ''),
+        setupFiles: ['./src/setup.ts'],
         fileParallelism: false,
         coverage: {
             reporter: ['text', 'json-summary', 'json'],

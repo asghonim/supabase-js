@@ -158,3 +158,25 @@ INSERT INTO public.notification_templates
         <p>Thank you for reaching out. We''ve received your ticket and will get back to you as soon as possible.</p>
         <p>Best regards,<br>The Support Team</p>'
     );
+
+
+-- ================================================================
+-- tickets  →  set_ticket_status (UPDATE)
+-- ================================================================
+
+CREATE TABLE public.tickets_audit (
+    id                      BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    operation               TEXT        NOT NULL CHECK (operation IN ('UPDATE', 'DELETE')),
+    old_row                 JSONB,
+    new_row                 JSONB,
+    performed_by_account_id BIGINT      REFERENCES public.accounts(id) ON DELETE SET NULL,
+    performed_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_tickets_audit_source  ON public.tickets_audit ((old_row->>'id'));
+CREATE INDEX idx_tickets_audit_account ON public.tickets_audit (performed_by_account_id);
+ALTER TABLE public.tickets_audit ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.tickets_audit TO service_role;
+
+CREATE TRIGGER trg_tickets_audit
+    AFTER UPDATE ON public.tickets
+    FOR EACH ROW EXECUTE FUNCTION private.audit_row_changes();

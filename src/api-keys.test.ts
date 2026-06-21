@@ -240,6 +240,18 @@ describe('revoke_api_key (RPC)', () => {
       .eq('id', key.id)
       .single()
     expect(data!.revoked_at).not.toBeNull()
+
+    const { data: auditRows } = await admin
+      .from('api_keys_audit')
+      .select('operation, old_row, new_row, performed_by_account_id')
+      .eq('old_row->>id', String(key.id))
+      .order('performed_at', { ascending: false })
+      .limit(1)
+    expect(auditRows).toHaveLength(1)
+    expect(auditRows![0].operation).toBe('UPDATE')
+    expect(auditRows![0].old_row.revoked_at).toBeNull()
+    expect(auditRows![0].new_row.revoked_at).not.toBeNull()
+    expect(auditRows![0].performed_by_account_id).toBe(owner.accountId)
   })
 
   it('org member without apikey.create cannot revoke a key', async () => {

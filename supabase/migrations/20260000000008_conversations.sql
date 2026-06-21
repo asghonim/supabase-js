@@ -473,3 +473,48 @@ CREATE OR REPLACE FUNCTION public.remove_message_reaction(p_message_id BIGINT, p
 	$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, private;
 REVOKE ALL ON FUNCTION public.remove_message_reaction(BIGINT, TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.remove_message_reaction(BIGINT, TEXT) TO authenticated;
+
+
+-- ================================================================
+-- messages  →  edit_message (UPDATE body),
+--              delete_message (UPDATE deleted_at)
+-- ================================================================
+
+CREATE TABLE public.messages_audit (
+    id                      BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    operation               TEXT        NOT NULL CHECK (operation IN ('UPDATE', 'DELETE')),
+    old_row                 JSONB,
+    new_row                 JSONB,
+    performed_by_account_id BIGINT      REFERENCES public.accounts(id) ON DELETE SET NULL,
+    performed_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_messages_audit_source  ON public.messages_audit ((old_row->>'id'));
+CREATE INDEX idx_messages_audit_account ON public.messages_audit (performed_by_account_id);
+ALTER TABLE public.messages_audit ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.messages_audit TO service_role;
+
+CREATE TRIGGER trg_messages_audit
+    AFTER UPDATE ON public.messages
+    FOR EACH ROW EXECUTE FUNCTION private.audit_row_changes();
+
+
+-- ================================================================
+-- message_reactions  →  remove_message_reaction (DELETE)
+-- ================================================================
+
+CREATE TABLE public.message_reactions_audit (
+    id                      BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    operation               TEXT        NOT NULL CHECK (operation IN ('UPDATE', 'DELETE')),
+    old_row                 JSONB,
+    new_row                 JSONB,
+    performed_by_account_id BIGINT      REFERENCES public.accounts(id) ON DELETE SET NULL,
+    performed_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+CREATE INDEX idx_message_reactions_audit_message ON public.message_reactions_audit ((old_row->>'message_id'));
+CREATE INDEX idx_message_reactions_audit_account ON public.message_reactions_audit (performed_by_account_id);
+ALTER TABLE public.message_reactions_audit ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON TABLE public.message_reactions_audit TO service_role;
+
+CREATE TRIGGER trg_message_reactions_audit
+    AFTER DELETE ON public.message_reactions
+    FOR EACH ROW EXECUTE FUNCTION private.audit_row_changes();

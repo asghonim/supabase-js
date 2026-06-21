@@ -477,6 +477,18 @@ describe('notification system RLS', () => {
         .single()
       expect(data!.is_read).toBe(true)
       expect(data!.read_at).toBeTruthy()
+
+      const { data: auditRows } = await admin
+        .from('notification_inbox_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(item.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.is_read).toBe(false)
+      expect(auditRows![0].new_row.is_read).toBe(true)
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
 
     it("does not mark another user's item as read", async () => {
@@ -501,8 +513,8 @@ describe('notification system RLS', () => {
       const event2 = await seedEvent()
       const r1 = await seedRecipient(event1.id, userA.accountId)
       const r2 = await seedRecipient(event2.id, userA.accountId)
-      await seedInboxItem(r1.id, userA.accountId)
-      await seedInboxItem(r2.id, userA.accountId)
+      const item1 = await seedInboxItem(r1.id, userA.accountId)
+      const item2 = await seedInboxItem(r2.id, userA.accountId)
 
       const { error } = await userA.client.rpc('mark_all_notifications_read')
       expect(error).toBeNull()
@@ -514,6 +526,28 @@ describe('notification system RLS', () => {
         .eq('is_read', false)
         .is('archived_at', null)
       expect(data).toHaveLength(0)
+
+      const { data: auditRows } = await admin
+        .from('notification_inbox_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(item1.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.is_read).toBe(false)
+      expect(auditRows![0].new_row.is_read).toBe(true)
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
+
+      const { data: auditRows2 } = await admin
+        .from('notification_inbox_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(item2.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows2).toHaveLength(1)
+      expect(auditRows2![0].old_row.is_read).toBe(false)
+      expect(auditRows2![0].new_row.is_read).toBe(true)
     })
   })
 
@@ -532,6 +566,18 @@ describe('notification system RLS', () => {
         .eq('id', item.id)
         .single()
       expect(data!.archived_at).toBeTruthy()
+
+      const { data: auditRows } = await admin
+        .from('notification_inbox_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(item.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.archived_at).toBeNull()
+      expect(auditRows![0].new_row.archived_at).not.toBeNull()
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
 
     it("does not archive another user's inbox item", async () => {
@@ -691,6 +737,18 @@ describe('createNotificationsDb', () => {
 
       const { data } = await admin.from('notification_inbox').select('is_read').eq('id', item.id).single()
       expect(data!.is_read).toBe(true)
+
+      const { data: auditRows } = await admin
+        .from('notification_inbox_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(item.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.is_read).toBe(false)
+      expect(auditRows![0].new_row.is_read).toBe(true)
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
 
     it('markAllRead marks all items as read via db method', async () => {
@@ -707,6 +765,18 @@ describe('createNotificationsDb', () => {
 
       const { data } = await admin.from('notification_inbox').select('archived_at').eq('id', item.id).single()
       expect(data!.archived_at).toBeTruthy()
+
+      const { data: auditRows } = await admin
+        .from('notification_inbox_audit')
+        .select('operation, old_row, new_row, performed_by_account_id')
+        .eq('old_row->>id', String(item.id))
+        .order('performed_at', { ascending: false })
+        .limit(1)
+      expect(auditRows).toHaveLength(1)
+      expect(auditRows![0].operation).toBe('UPDATE')
+      expect(auditRows![0].old_row.archived_at).toBeNull()
+      expect(auditRows![0].new_row.archived_at).not.toBeNull()
+      expect(auditRows![0].performed_by_account_id).toBe(userA.accountId)
     })
 
     it('unreadCount returns a number via db method', async () => {

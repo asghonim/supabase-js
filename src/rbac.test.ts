@@ -545,7 +545,7 @@ describe('security: unprivileged user cannot revoke platform roles', () => {
     expect(error).not.toBeNull()
     const { data } = await admin
       .from('account_platform_roles')
-      .select('id')
+      .select('account_id')
       .eq('account_id', victim.accountId)
       .eq('platform_role_id', auditorRoleId)
     expect(data!.length).toBeGreaterThan(0)
@@ -559,7 +559,7 @@ describe('security: unprivileged user cannot revoke platform roles', () => {
     expect(error).not.toBeNull()
     const { data } = await admin
       .from('account_platform_roles')
-      .select('id')
+      .select('account_id')
       .eq('account_id', victim.accountId)
     expect(data!.length).toBeGreaterThan(0)
   })
